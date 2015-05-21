@@ -1,12 +1,17 @@
+from io import StringIO
 import os
 from urllib.parse import urlparse
+import subprocess
 
 import click
 
 
-POSTGRES_DEFAULT_PORT = 5432
+DEFAULT_PORTS = {
+    'postgres': 5432,
+}
 
 MIGRATION_STATUS_BOOTSTRAPPED = "bootstrapped"
+MIGRATION_STATUS_PENDING = "pending"
 MIGRATION_STATUS_SUCCEEDED = "succeeded"
 MIGRATION_STATUS_FAILED = "failed"
 
@@ -28,27 +33,18 @@ class Config(object):
 pass_config = click.make_pass_decorator(Config, ensure=True)
 
 
-def validate_not_none(ctx, param, value):
-    ''' Validate that an option is not None. '''
-
-    if value is None:
-        raise click.BadParameter('a value is required')
-    else:
-        return value
-
-
 @click.group()
 @click.option('-t', '--type',
               envvar='AGNOSTIC_TYPE',
               metavar='<type>',
-              callback=validate_not_none,
+              required=True,
               type=click.Choice(['postgres']),
               help='Type of database.')
 @click.option('-h', '--host',
               default='localhost',
               envvar='AGNOSTIC_HOST',
               metavar='<host>',
-              callback=validate_not_none,
+              required=True,
               help='Database hostname. (default: localhost)')
 @click.option('-p', '--port',
               type=int,
@@ -59,12 +55,12 @@ def validate_not_none(ctx, param, value):
 @click.option('-u', '--user',
               envvar='AGNOSTIC_USER',
               metavar='<user>',
-              callback=validate_not_none,
+              required=True,
               help='Database username.')
 @click.option('-p', '--password',
               envvar='AGNOSTIC_PASSWORD',
               metavar='<pass>',
-              callback=validate_not_none,
+              required=True,
               prompt='Database password',
               hide_input=True,
               help='Database password. If omitted, the password must be ' \
@@ -72,13 +68,13 @@ def validate_not_none(ctx, param, value):
 @click.option('-s', '--schema',
               envvar='AGNOSTIC_SCHEMA',
               metavar='<schema>',
-              callback=validate_not_none,
+              required=True,
               help='Name of database schema.')
 @click.option('-d', '--migrations-dir',
               default='migrations',
               envvar='AGNOSTIC_MIGRATIONS_DIR',
               metavar='<dir>',
-              callback=validate_not_none,
+              required=True,
               type=click.Path(exists=True),
               help='Path to migrations directory. (default: ./migrations)')
 @click.option('-d', '--debug',
@@ -95,12 +91,13 @@ def cli(config, type, host, port, user, password, schema,
     config.debug = debug
     config.host = host
     config.password = password
-    config.port = port
     config.schema = schema
     config.type = type
     config.user = user
     config.migrations_dir = migrations_dir
 
+    if port is None:
+        config.port = _get_default_port(config.type)
 
 @click.command()
 @click.option('--load-existing/--no-load-existing',
@@ -139,7 +136,7 @@ def bootstrap(config, load_existing):
                                        + str(e))
 
     db.commit()
-    click.secho('Migraiton table created.', fg='green')
+    click.secho('Migration table created.', fg='green')
 
 
 @click.command()
@@ -175,37 +172,61 @@ def drop(config, yes):
 
 
 @click.command()
+@click.argument('outfile', type=click.File('w'))
 @pass_config
-def snapshot(config):
+def snapshot(config, outfile):
     '''
-    Take a snapshot of the current schema.
+    Take a snapshot of the current schema and write it to OUTFILE.
+
+    Snapshots are used for testing that migrations will produce a schema that
+    exactly matches the system produced by your build system. See the
+    online documentation for more details on how to use this feature.
     '''
-    click.echo('snapshot')
+
+    click.echo('Creating snapshot...')
+
+    process = _make_snapshot(config, outfile)
+    process.wait()
+
+    if process.returncode == 0:
+        click.secho('Snapshot written to "%s".' % outfile.name, fg='green')
+    else:
+        err = 'failed to run external tool, exited with %d: "%s"' % \
+              (process.returncode, process.stderr.read())
+        raise click.UsageError(err)
 
 
 @click.command('list')
+@click.option('-p', '--pending',
+              is_flag=True,
+              help='Display pending migrations only.')
 @pass_config
-def list_(config):
+def list_(config, pending):
     '''
     List migrations.
 
-    This shows migration metadata: which migrations have been applied and the
-    results of those migrations. Each migration has one of the following
-    statuses:
+    This shows migration metadata: migrations that have been applied (and the
+    result of that application) and migrations that are pending.
 
     \b
         * bootstrapped: a migration that was inserted during the bootstrap
           process.
         * failed: the migration did not apply cleanly; the migrations system
-          will not be able to operate until this rectified, typically by
+          will not be able to operate until this is rectified, typically by
           restoring from a backup.
+        * pending: the migration has not been applied yet.
         * succeeded: the migration applied cleanly.
 
-    Migrations are ordered by the ``started_at`` timestamp.
+    Applied migrations are ordered by the "started_at" timestamp. Pending
+    migrations follow applied migrations and are sorted in the same order that
+    they would be applied.
     '''
 
     db = _connect_db(config)
     cursor = db.cursor()
+
+    migration_files = set(_list_migration_files(config.migrations_dir))
+    migrations_applied = set()
 
     try:
         migrations = _get_migration_records(cursor)
@@ -230,6 +251,7 @@ def list_(config):
             started_at = started_at.strftime('%Y-%m-%d %H:%I:%S')
             completed_at = completed_at.strftime('%Y-%m-%d %H:%I:%S')
             msg = row.format(name, status, started_at, completed_at)
+            migrations_applied.add(name)
 
             if status == MIGRATION_STATUS_BOOTSTRAPPED:
                 click.echo(msg)
@@ -240,6 +262,15 @@ def list_(config):
             else:
                 raise ValueError('Invalid migration status: "{}".'
                                  .format(status))
+
+        pending_migrations = migration_files - migrations_applied
+
+        for pending_migration in pending_migrations:
+            msg = row.format(
+                pending_migration, MIGRATION_STATUS_PENDING, 'N/A', 'N/A'
+            )
+            click.echo(msg)
+
     except Exception as e:
         if config.debug:
             raise
@@ -294,11 +325,6 @@ def _bootstrap_migration(type_, cursor, migration):
 def _connect_db(config):
     ''' Return a DB connection. '''
 
-    if config.port is not None:
-        port = config.port
-    else:
-        port = POSTGRES_DEFAULT_PORT
-
     if config.type == 'postgres':
         try:
             import psycopg2
@@ -307,7 +333,7 @@ def _connect_db(config):
 
         return psycopg2.connect(
             host=config.host,
-            port=port,
+            port=config.port,
             user=config.user,
             password=config.password,
             database=config.schema
@@ -333,6 +359,15 @@ def _get_create_table_sql(type_):
         raise ValueError('Database type "%s" not supported.' % type_)
 
 
+def _get_default_port(type_):
+    ''' Return the default port number for the given type of database. '''
+
+    try:
+        return DEFAULT_PORTS[type_]
+    except KeyError:
+        raise ValueError('Database type "%s" not supported.' % type_)
+
+
 def _get_migration_records(cursor):
     ''' Return records from the migration table. '''
 
@@ -342,6 +377,7 @@ def _get_migration_records(cursor):
         ''')
 
     return cursor.fetchall()
+
 
 def _list_migration_files(migrations_dir, sub_path=''):
     '''
@@ -357,8 +393,49 @@ def _list_migration_files(migrations_dir, sub_path=''):
     for dir_entry in sorted(os.listdir(current_dir)):
         dir_entry_path = os.path.join(current_dir, dir_entry)
 
-        if os.path.isfile(dir_entry_path):
-            yield dir_entry_path[migration_prefix_len:]
+        if os.path.isfile(dir_entry_path) and dir_entry.endswith('.sql'):
+            yield dir_entry_path[migration_prefix_len:-4]
         elif os.path.isdir(dir_entry_path):
             new_sub_path = os.path.join(sub_path, dir_entry)
             yield from _list_migration_files(migrations_dir, new_sub_path)
+
+
+def _make_snapshot(config, outfile):
+    '''
+    Write a snapshot to ``outfile``.
+
+    This should write the schema only (no data) in a deterministic way (so that
+    the same schema dumped on a different host or at a different time would
+    produce a byte-for-byte identical snapshot).
+
+    Stderr should be connected to a pipe so that the caller can read error
+    messages, if any.
+    '''
+
+    if config.type == 'postgres':
+        env = {'PGPASSWORD': config.password}
+
+        command = [
+            'pg_dump',
+            '-h', config.host,
+            '-p', str(config.port),
+            '-U', config.user,
+            '-s', # dump schema only
+            '-x', # don't dump grant/revoke statements
+            '--no-tablespaces',
+            config.schema,
+        ]
+
+        process = subprocess.Popen(
+            command,
+            env=env,
+            stdout=outfile,
+            stderr=subprocess.PIPE
+        )
+
+        return process
+
+    else:
+        raise ValueError('Database type "%s" not supported.' % config.type)
+
+
