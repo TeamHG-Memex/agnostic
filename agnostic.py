@@ -267,13 +267,66 @@ def list_(config, pending):
 
 
 @click.command()
+@click.option('--backup/--no-backup',
+              default=True,
+              help='Automatically backup the database before running ' \
+                   'migrations, and in the event of a failure, automatically ' \
+                   'restore from that backup. (default: --backup).')
 @pass_config
-def migrate(config):
+def migrate(config, backup):
     '''
     Run pending migrations.
     '''
-    click.echo('migrate')
 
+    db = _connect_db(config)
+    db.autocommit = True
+    cursor = db.cursor()
+
+    pending = _get_pending_migrations(config, cursor)
+    total = len(pending)
+
+    if total == 0:
+        click.secho('There are no pending migrations.', fg='green')
+        return
+
+    if backup:
+        backup_file = tempfile.NamedTemporaryFile('w', delete=False)
+        click.echo(
+            'Backing up schema "%s" to "%s".' %
+            (config.schema, backup_file.name)
+        )
+        _wait_for(_backup(config, backup_file))
+        backup_file.close()
+
+    click.echo('About to run %d migration%s in schema "%s":' %
+               (total, 's' if total > 1 else '', config.schema))
+
+    try:
+        _run_migrations(config, cursor, pending)
+    except Exception as e:
+        click.secho('Migration failed because:', fg='red')
+        click.echo(str(e))
+        db.close()
+
+        if backup:
+            click.secho('Will try to restore from backup…', fg='red')
+
+            try:
+                _clear_schema(config)
+                _wait_for(_restore(config, open(backup_file.name, 'r')))
+                click.secho('Restored from backup.', fg='green')
+            except:
+                msg = 'Could not restore from backup!'
+                click.secho(msg, fg='red', bold=True)
+                raise
+
+        raise click.Abort() from e
+
+    click.secho('Migrations completed successfully.', fg='green')
+
+    if backup:
+        click.echo('Removing backup "%s".' % backup_file.name)
+        os.unlink(backup_file.name)
 
 @click.command()
 @click.argument('outfile', type=click.File('w'))
@@ -289,15 +342,9 @@ def snapshot(config, outfile):
 
     click.echo('Creating snapshot...')
 
-    process = _make_snapshot(config, outfile)
-    process.wait()
+    _wait_for(_make_snapshot(config, outfile))
 
-    if process.returncode == 0:
-        click.secho('Snapshot written to "%s".' % outfile.name, fg='green')
-    else:
-        err = 'failed to run external tool, exited with %d:\n%s' % \
-              (process.returncode, process.stderr.read().decode('utf8'))
-        raise click.ClickException(err)
+    click.secho('Snapshot written to "%s".' % outfile.name, fg='green')
 
 
 @click.command()
@@ -338,13 +385,7 @@ def test(config, yes, current, target):
     _clear_schema(config)
 
     click.echo('Loading current snapshot "%s".' % current.name)
-    process = _load_snapshot(config, current)
-    process.wait()
-
-    if process.returncode != 0:
-        err = 'failed to load current snapshot, exited with %d:\n%s' % \
-              (process.returncode, process.stderr.read().decode('utf8'))
-        raise click.ClickException(err)
+    _wait_for(_load_snapshot(config, current))
 
     # Run migrations on current schema.
     db = _connect_db(config)
@@ -360,13 +401,7 @@ def test(config, yes, current, target):
 
     # Dump the migrated schema to the temp file.
     click.echo('Snapshotting the migrated schema.')
-    process = _make_snapshot(config, temp_snapshot)
-    process.wait()
-
-    if process.returncode != 0:
-        err = 'failed to run external tool, exited with %d:\n%s' % \
-              (process.returncode, process.stderr.read().decode('utf8'))
-        raise click.UsageError(err)
+    _wait_for(_make_snapshot(config, temp_snapshot))
 
     # Compare the migrated schema to the target schema.
     click.echo('Comparing migrated schema to target schema.')
@@ -401,6 +436,32 @@ cli.add_command(test)
 cli.add_command(migrate)
 
 
+def _backup(config, backup_file):
+    ''' Backup the schema to the given file handle. '''
+
+    if config.type == 'postgres':
+        env = {'PGPASSWORD': config.password}
+
+        command = [
+            'pg_dump',
+            '-h', config.host,
+            '-p', str(config.port),
+            '-U', config.user,
+            config.schema,
+        ]
+
+        process = subprocess.Popen(
+            command,
+            env=env,
+            stdout=backup_file,
+            stderr=subprocess.PIPE
+        )
+
+        return process
+
+    else:
+        raise ValueError('Database type "%s" not supported.' % config.type)
+
 def _bootstrap_migration(type_, cursor, migration):
     '''
     Insert a migration into the migrations table and mark it as having been
@@ -433,6 +494,7 @@ def _clear_schema(config):
         cursor = db.cursor()
         cursor.execute('DROP DATABASE %s' % config.schema)
         cursor.execute('CREATE DATABASE %s' % config.schema)
+        db.close()
     else:
         raise ValueError('Database type "%s" not supported.' % config.type)
 
@@ -499,7 +561,7 @@ def _get_pending_migrations(config, cursor):
     Return a list of pending migrations in the order they should be applied.
     '''
 
-    applied_migrations = set(_get_migration_records(cursor))
+    applied_migrations = {m[0] for m in _get_migration_records(cursor)}
     migration_files = _list_migration_files(config.migrations_dir)
 
     return [m for m in migration_files if m not in applied_migrations]
@@ -542,6 +604,7 @@ def _load_snapshot(config, snapshot):
             '-h', config.host,
             '-p', str(config.port),
             '-U', config.user,
+            '-v', 'ON_ERROR_STOP=1', # Fail fast if an error occurs.
             config.schema,
         ]
 
@@ -598,6 +661,35 @@ def _make_snapshot(config, outfile):
         raise ValueError('Database type "%s" not supported.' % config.type)
 
 
+def _restore(config, backup_file):
+    ''' Restore the schema from the given file handle. '''
+
+    if config.type == 'postgres':
+        env = {'PGPASSWORD': config.password}
+
+        command = [
+            'psql',
+            '-h', config.host,
+            '-p', str(config.port),
+            '-U', config.user,
+            '-v', 'ON_ERROR_STOP=1', # Fail fast if an error occurs.
+            config.schema,
+        ]
+
+        process = subprocess.Popen(
+            command,
+            env=env,
+            stdin=backup_file,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.PIPE
+        )
+
+        return process
+
+    else:
+        raise ValueError('Database type "%s" not supported.' % config.type)
+
+
 def _run_migrations(config, cursor, migrations):
     ''' Run the specified migrations in the given order. '''
 
@@ -614,13 +706,7 @@ def _run_migrations(config, cursor, migrations):
             VALUES (%(name)s, %(status)s, NOW())
         ''', {'name': migration, 'status': MIGRATION_STATUS_FAILED})
 
-        process = _run_migration_file(config, open(m2f(migration), 'r'))
-        process.wait()
-
-        if process.returncode != 0:
-            err = 'failed to run external tool, exited with %d:\n%s' % \
-               (process.returncode, process.stderr.read().decode('utf8'))
-            raise click.ClickException(err)
+        _wait_for(_run_migration_file(config, open(m2f(migration), 'r')))
 
         cursor.execute('''
             UPDATE "agnostic_migrations"
@@ -640,6 +726,7 @@ def _run_migration_file(config, migration_file):
             '-h', config.host,
             '-p', str(config.port),
             '-U', config.user,
+            '-v', 'ON_ERROR_STOP=1', # Fail fast if an error occurs.
             config.schema,
         ]
 
@@ -656,3 +743,19 @@ def _run_migration_file(config, migration_file):
     else:
         raise ValueError('Database type "%s" not supported.' % config.type)
 
+
+def _wait_for(process):
+    ''' Wait for ``process`` to finish and check the exit code. '''
+
+    process.wait()
+
+    if process.returncode != 0:
+        msg = 'failed to run external tool "%s" (exit %d):\n%s'
+
+        params = (
+            process.args[0],
+            process.returncode,
+            process.stderr.read().decode('utf8')
+        )
+
+        raise click.ClickException(msg % params)
