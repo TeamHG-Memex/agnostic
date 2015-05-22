@@ -1,7 +1,11 @@
+from copy import copy
+from datetime import datetime
+import difflib
 from io import StringIO
 import os
-from urllib.parse import urlparse
 import subprocess
+import tempfile
+from urllib.parse import urlparse
 
 import click
 
@@ -123,7 +127,8 @@ def bootstrap(config, load_existing):
     except Exception as e:
         if config.debug:
             raise
-        raise click.UsageError('Failed to create migration table: ' + str(e))
+        msg = 'Failed to create migration table: %s'
+        raise click.ClickException(msg % str(e))
 
     if load_existing:
         for migration in _list_migration_files(config.migrations_dir):
@@ -132,8 +137,8 @@ def bootstrap(config, load_existing):
             except Exception as e:
                 if config.debug:
                     raise
-                raise click.UsageError('Failed to load existing migrations: '
-                                       + str(e))
+                msg = 'Failed to load existing migrations: '
+                raise click.ClickException(msg + str(e))
 
     db.commit()
     click.secho('Migration table created.', fg='green')
@@ -159,41 +164,19 @@ def drop(config, yes):
 
     warning = 'WARNING: This will drop all migrations metadata!'
     click.echo(click.style(warning, fg='red'))
+    confirmation = 'Are you 100% positive that you want to do this?'
 
-    if yes or click.confirm('Are you 100% positive that you want to do this?'):
-        try:
-            cursor.execute('DROP TABLE "agnostic_migrations"')
-            db.commit()
-            click.secho('Migration table dropped.', fg='green')
-        except Exception as e:
-            if config.debug:
-                raise
-            raise click.UsageError('Failed to drop migration table: ' + str(e))
+    if not (yes or click.confirm(confirmation)):
+        raise click.Abort()
 
-
-@click.command()
-@click.argument('outfile', type=click.File('w'))
-@pass_config
-def snapshot(config, outfile):
-    '''
-    Take a snapshot of the current schema and write it to OUTFILE.
-
-    Snapshots are used for testing that migrations will produce a schema that
-    exactly matches the system produced by your build system. See the
-    online documentation for more details on how to use this feature.
-    '''
-
-    click.echo('Creating snapshot...')
-
-    process = _make_snapshot(config, outfile)
-    process.wait()
-
-    if process.returncode == 0:
-        click.secho('Snapshot written to "%s".' % outfile.name, fg='green')
-    else:
-        err = 'failed to run external tool, exited with %d: "%s"' % \
-              (process.returncode, process.stderr.read())
-        raise click.UsageError(err)
+    try:
+        cursor.execute('DROP TABLE "agnostic_migrations"')
+        db.commit()
+        click.secho('Migration table dropped.', fg='green')
+    except Exception as e:
+        if config.debug:
+            raise
+        raise click.ClickException('Failed to drop migration table: ' + str(e))
 
 
 @click.command('list')
@@ -225,65 +208,62 @@ def list_(config, pending):
     db = _connect_db(config)
     cursor = db.cursor()
 
-    migration_files = set(_list_migration_files(config.migrations_dir))
-    migrations_applied = set()
+    applied = _get_migration_records(cursor)
+    applied_set = {a[0] for a in applied}
+    pending = list()
+
+    for pm in _get_pending_migrations(config, cursor):
+        if pm not in applied_set:
+            pending.append((pm, MIGRATION_STATUS_PENDING, None, None))
+
+    migrations = applied + pending
 
     try:
-        migrations = _get_migration_records(cursor)
-
         if len(migrations) == 0:
             raise ValueError('no migrations exist')
 
         column_names = 'Name', 'Status', 'Started At', 'Completed At'
-        max_name_len = len(max(migrations, key=lambda i: len(i[0]))[0])
-        max_status_len = len(max(migrations, key=lambda i: len(i[1]))[1])
-        row = '{:<%d} | {:%d} | {:<19} | {:<19}' % (max_name_len, max_status_len)
+        max_name = len(max(migrations, key=lambda i: len(i[0]))[0])
+        max_status = len(max(migrations, key=lambda i: len(i[1]))[1])
+        row = '{:<%d} | {:%d} | {:<19} | {:<19}' % (max_name, max_status)
 
         click.echo(row.format(*column_names))
         click.echo(
-            '-' * (max_name_len + 1) + '+' +
-            '-' * (max_status_len + 2) + '+' +
+            '-' * (max_name + 1) + '+' +
+            '-' * (max_status + 2) + '+' +
             '-' * 21 + '+' +
             '-' * 20
         )
 
         for name, status, started_at, completed_at in migrations:
-            started_at = started_at.strftime('%Y-%m-%d %H:%I:%S')
-            completed_at = completed_at.strftime('%Y-%m-%d %H:%I:%S')
+            if started_at is None:
+                started_at = 'N/A'
+            elif isinstance(started_at, datetime):
+                started_at = started_at.strftime('%Y-%m-%d %H:%I:%S')
+
+            if completed_at is None:
+                completed_at = 'N/A'
+            elif isinstance(completed_at, datetime):
+                completed_at = completed_at.strftime('%Y-%m-%d %H:%I:%S')
+
             msg = row.format(name, status, started_at, completed_at)
-            migrations_applied.add(name)
 
             if status == MIGRATION_STATUS_BOOTSTRAPPED:
                 click.echo(msg)
             elif status == MIGRATION_STATUS_FAILED:
                 click.secho(msg, fg='red')
+            elif status == MIGRATION_STATUS_PENDING:
+                click.echo(msg)
             elif status == MIGRATION_STATUS_SUCCEEDED:
                 click.secho(msg, fg='green')
             else:
                 raise ValueError('Invalid migration status: "{}".'
                                  .format(status))
 
-        pending_migrations = migration_files - migrations_applied
-
-        for pending_migration in pending_migrations:
-            msg = row.format(
-                pending_migration, MIGRATION_STATUS_PENDING, 'N/A', 'N/A'
-            )
-            click.echo(msg)
-
     except Exception as e:
         if config.debug:
             raise
-        raise click.UsageError('Cannot list migrations: ' + str(e))
-
-
-@click.command()
-@pass_config
-def test(config):
-    '''
-    Test pending migrations.
-    '''
-    click.echo('test')
+        raise click.ClickException('Cannot list migrations: ' + str(e))
 
 
 @click.command()
@@ -293,6 +273,124 @@ def migrate(config):
     Run pending migrations.
     '''
     click.echo('migrate')
+
+
+@click.command()
+@click.argument('outfile', type=click.File('w'))
+@pass_config
+def snapshot(config, outfile):
+    '''
+    Take a snapshot of the current schema and write it to OUTFILE.
+
+    Snapshots are used for testing that migrations will produce a schema that
+    exactly matches the schema produced by your build system. See the
+    online documentation for more details on how to use this feature.
+    '''
+
+    click.echo('Creating snapshot...')
+
+    process = _make_snapshot(config, outfile)
+    process.wait()
+
+    if process.returncode == 0:
+        click.secho('Snapshot written to "%s".' % outfile.name, fg='green')
+    else:
+        err = 'failed to run external tool, exited with %d:\n%s' % \
+              (process.returncode, process.stderr.read().decode('utf8'))
+        raise click.ClickException(err)
+
+
+@click.command()
+@click.option('-y', '--yes',
+              is_flag=True,
+              help='Do not display warning: assume "yes".')
+@click.argument('current', type=click.File('r'))
+@click.argument('target', type=click.File('r'))
+@pass_config
+def test(config, yes, current, target):
+    '''
+    Test pending migrations.
+
+    Given two snapshots, one of your "current" state and one of your "target"
+    state, this command verifies: current + migrations = target.
+
+    If you have a schema build system, this command is useful for verifying that
+    your new migrations will produce the exact same schema as the build system.
+
+    Note: you may find it useful to set up a database/schema for testing
+    separate from the one that you use for development; this allows you to test
+    repeatedly without disrupting your development work.
+    '''
+
+    # Create a temporary file for holding the migrated schema.
+    temp_snapshot = tempfile.TemporaryFile('w+')
+
+    # Make sure the user understands what is about to happen.
+    warning = 'WARNING: This will drop the schema "%s"!' % config.schema
+    click.echo(click.style(warning, fg='red'))
+    confirmation = 'Are you 100% positive that you want to do this?'
+
+    if not (yes or click.confirm(confirmation)):
+        raise click.Abort()
+
+    # Load the current schema.
+    click.echo('Dropping schema "%s".' % config.schema)
+    _clear_schema(config)
+
+    click.echo('Loading current snapshot "%s".' % current.name)
+    process = _load_snapshot(config, current)
+    process.wait()
+
+    if process.returncode != 0:
+        err = 'failed to load current snapshot, exited with %d:\n%s' % \
+              (process.returncode, process.stderr.read().decode('utf8'))
+        raise click.ClickException(err)
+
+    # Run migrations on current schema.
+    db = _connect_db(config)
+    db.autocommit = True
+    cursor = db.cursor()
+
+    pending = _get_pending_migrations(config, cursor)
+    total = len(pending)
+    click.echo('About to run %d migration%s in schema "%s":' %
+               (total, 's' if total > 1 else '', config.schema))
+    _run_migrations(config, cursor, pending)
+    click.echo('Finished migrations.')
+
+    # Dump the migrated schema to the temp file.
+    click.echo('Snapshotting the migrated schema.')
+    process = _make_snapshot(config, temp_snapshot)
+    process.wait()
+
+    if process.returncode != 0:
+        err = 'failed to run external tool, exited with %d:\n%s' % \
+              (process.returncode, process.stderr.read().decode('utf8'))
+        raise click.UsageError(err)
+
+    # Compare the migrated schema to the target schema.
+    click.echo('Comparing migrated schema to target schema.')
+    temp_snapshot.seek(0)
+
+    diff = list(difflib.unified_diff(
+        temp_snapshot.readlines(),
+        target.readlines(),
+        fromfile='Current Schema',
+        tofile='Target Schema'
+    ))
+
+    if len(diff) == 0:
+        click.secho(
+            'Test passed: migrated schema matches target schema!',
+            fg='green'
+        )
+    else:
+        click.secho(
+            'Test failed: migrated schema differs from target schema.\n',
+            fg='red'
+        )
+        click.echo(''.join(diff))
+        raise click.ClickException('Test failed. See diff output above.')
 
 
 cli.add_command(bootstrap)
@@ -321,6 +419,22 @@ def _bootstrap_migration(type_, cursor, migration):
     else:
         raise ValueError('Database type "%s" not supported.' % config.type)
 
+def _clear_schema(config):
+    ''' Drop the current schema and then recreate it. '''
+
+    if config.type == 'postgres':
+        # Can't delete the schema if we're logged into it, so use the default
+        # 'postgres' database instead.
+        temp_config = copy(config)
+        temp_config.schema = 'postgres'
+        db = _connect_db(temp_config)
+        db.autocommit = True
+
+        cursor = db.cursor()
+        cursor.execute('DROP DATABASE %s' % config.schema)
+        cursor.execute('CREATE DATABASE %s' % config.schema)
+    else:
+        raise ValueError('Database type "%s" not supported.' % config.type)
 
 def _connect_db(config):
     ''' Return a DB connection. '''
@@ -329,7 +443,8 @@ def _connect_db(config):
         try:
             import psycopg2
         except ImportError:
-            raise click.UsageError('psycopg2 module is required for Postgres.')
+            msg = 'psycopg2 module is required for Postgres.'
+            raise click.ClickException(msg)
 
         return psycopg2.connect(
             host=config.host,
@@ -379,6 +494,17 @@ def _get_migration_records(cursor):
     return cursor.fetchall()
 
 
+def _get_pending_migrations(config, cursor):
+    '''
+    Return a list of pending migrations in the order they should be applied.
+    '''
+
+    applied_migrations = set(_get_migration_records(cursor))
+    migration_files = _list_migration_files(config.migrations_dir)
+
+    return [m for m in migration_files if m not in applied_migrations]
+
+
 def _list_migration_files(migrations_dir, sub_path=''):
     '''
     List all of the migration files in the specified directory.
@@ -398,6 +524,39 @@ def _list_migration_files(migrations_dir, sub_path=''):
         elif os.path.isdir(dir_entry_path):
             new_sub_path = os.path.join(sub_path, dir_entry)
             yield from _list_migration_files(migrations_dir, new_sub_path)
+
+
+def _load_snapshot(config, snapshot):
+    '''
+    Load a schema snapshot.
+
+    Stderr should be connected to a pipe so that the caller can read error
+    messages, if any.
+    '''
+
+    if config.type == 'postgres':
+        env = {'PGPASSWORD': config.password}
+
+        command = [
+            'psql',
+            '-h', config.host,
+            '-p', str(config.port),
+            '-U', config.user,
+            config.schema,
+        ]
+
+        process = subprocess.Popen(
+            command,
+            env=env,
+            stdin=snapshot,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.PIPE
+        )
+
+        return process
+
+    else:
+        raise ValueError('Database type "%s" not supported.' % config.type)
 
 
 def _make_snapshot(config, outfile):
@@ -438,4 +597,62 @@ def _make_snapshot(config, outfile):
     else:
         raise ValueError('Database type "%s" not supported.' % config.type)
 
+
+def _run_migrations(config, cursor, migrations):
+    ''' Run the specified migrations in the given order. '''
+
+    total = len(migrations)
+    m2f = lambda m: os.path.join(config.migrations_dir, '%s.sql' % m)
+
+    for index, migration in enumerate(migrations):
+        click.echo(' * Running migration ' +
+                   click.style(migration, bold=True) +
+                   ' (%d/%d)' % (index + 1, total))
+
+        cursor.execute('''
+            INSERT INTO "agnostic_migrations" ("name", "status", "started_at")
+            VALUES (%(name)s, %(status)s, NOW())
+        ''', {'name': migration, 'status': MIGRATION_STATUS_FAILED})
+
+        process = _run_migration_file(config, open(m2f(migration), 'r'))
+        process.wait()
+
+        if process.returncode != 0:
+            err = 'failed to run external tool, exited with %d:\n%s' % \
+               (process.returncode, process.stderr.read().decode('utf8'))
+            raise click.ClickException(err)
+
+        cursor.execute('''
+            UPDATE "agnostic_migrations"
+            SET "status" = %(status)s, "completed_at" = NOW()
+            WHERE "name" = %(name)s
+        ''', {'name': migration, 'status': MIGRATION_STATUS_SUCCEEDED})
+
+
+def _run_migration_file(config, migration_file):
+    ''' Run a single migration file and return a process. '''
+
+    if config.type == 'postgres':
+        env = {'PGPASSWORD': config.password}
+
+        command = [
+            'psql',
+            '-h', config.host,
+            '-p', str(config.port),
+            '-U', config.user,
+            config.schema,
+        ]
+
+        process = subprocess.Popen(
+            command,
+            env=env,
+            stdin=migration_file,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.PIPE
+        )
+
+        return process
+
+    else:
+        raise ValueError('Database type "%s" not supported.' % config.type)
 
