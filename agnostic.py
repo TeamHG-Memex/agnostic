@@ -128,7 +128,7 @@ def bootstrap(config, load_existing):
         if config.debug:
             raise
         msg = 'Failed to create migration table: %s'
-        raise click.ClickException(msg % str(e))
+        raise click.ClickException(msg % str(e)) from e
 
     if load_existing:
         for migration in _list_migration_files(config.migrations_dir):
@@ -138,7 +138,7 @@ def bootstrap(config, load_existing):
                 if config.debug:
                     raise
                 msg = 'Failed to load existing migrations: '
-                raise click.ClickException(msg + str(e))
+                raise click.ClickException(msg + str(e)) from e
 
     db.commit()
     click.secho('Migration table created.', fg='green')
@@ -176,7 +176,8 @@ def drop(config, yes):
     except Exception as e:
         if config.debug:
             raise
-        raise click.ClickException('Failed to drop migration table: ' + str(e))
+        msg = 'Failed to drop migration table: '
+        raise click.ClickException(msg + str(e)) from e
 
 
 @click.command('list')
@@ -263,7 +264,7 @@ def list_(config, pending):
     except Exception as e:
         if config.debug:
             raise
-        raise click.ClickException('Cannot list migrations: ' + str(e))
+        raise click.ClickException('Cannot list migrations: ' + str(e)) from e
 
 
 @click.command()
@@ -315,10 +316,12 @@ def migrate(config, backup):
                 _clear_schema(config)
                 _wait_for(_restore(config, open(backup_file.name, 'r')))
                 click.secho('Restored from backup.', fg='green')
-            except:
-                msg = 'Could not restore from backup!'
+            except Exception as e2:
+                msg = 'Could not restore from backup: %s' % str(e2)
                 click.secho(msg, fg='red', bold=True)
-                raise
+
+        if config.debug:
+            raise
 
         raise click.Abort() from e
 
@@ -504,9 +507,9 @@ def _connect_db(config):
     if config.type == 'postgres':
         try:
             import psycopg2
-        except ImportError:
+        except ImportError as e:
             msg = 'psycopg2 module is required for Postgres.'
-            raise click.ClickException(msg)
+            raise click.ClickException(msg) from e
 
         return psycopg2.connect(
             host=config.host,
@@ -541,8 +544,8 @@ def _get_default_port(type_):
 
     try:
         return DEFAULT_PORTS[type_]
-    except KeyError:
-        raise ValueError('Database type "%s" not supported.' % type_)
+    except KeyError as ke:
+        raise ValueError('Database type "%s" not supported.' % type_) from ke
 
 
 def _get_migration_records(cursor):
