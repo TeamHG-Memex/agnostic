@@ -1,6 +1,7 @@
 from copy import copy
 from datetime import datetime
 import difflib
+import importlib
 from io import StringIO
 import os
 import subprocess
@@ -481,7 +482,7 @@ def _bootstrap_migration(type_, cursor, migration):
             params
         )
     else:
-        raise ValueError('Database type "%s" not supported.' % config.type)
+        raise ValueError('Database type "%s" not supported.' % type_)
 
 def _clear_schema(config):
     ''' Drop the current schema and then recreate it. '''
@@ -506,7 +507,7 @@ def _connect_db(config):
 
     if config.type == 'postgres':
         try:
-            import psycopg2
+            psycopg2 = importlib.__import__('psycopg2')
         except ImportError as e:
             msg = 'psycopg2 module is required for Postgres.'
             raise click.ClickException(msg) from e
@@ -697,7 +698,7 @@ def _run_migrations(config, cursor, migrations):
     ''' Run the specified migrations in the given order. '''
 
     total = len(migrations)
-    m2f = lambda m: os.path.join(config.migrations_dir, '%s.sql' % m)
+    mig2file = lambda m: os.path.join(config.migrations_dir, '%s.sql' % m)
 
     for index, migration in enumerate(migrations):
         click.echo(' * Running migration ' +
@@ -709,7 +710,7 @@ def _run_migrations(config, cursor, migrations):
             VALUES (%(name)s, %(status)s, NOW())
         ''', {'name': migration, 'status': MIGRATION_STATUS_FAILED})
 
-        _wait_for(_run_migration_file(config, open(m2f(migration), 'r')))
+        _wait_for(_run_migration_file(config, open(mig2file(migration), 'r')))
 
         cursor.execute('''
             UPDATE "agnostic_migrations"
@@ -762,3 +763,6 @@ def _wait_for(process):
         )
 
         raise click.ClickException(msg % params)
+
+if __name__ == '__main__':
+    cli()
