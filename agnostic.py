@@ -26,6 +26,7 @@ class Config(object):
 
     def __init__(self):
         self.db = None
+        self.debug = False
         self.host = None
         self.migrations_dir = None
         self.password = None
@@ -62,7 +63,7 @@ pass_config = click.make_pass_decorator(Config, ensure=True)
               metavar='<user>',
               required=True,
               help='Database username.')
-@click.option('-p', '--password',
+@click.option('--password',
               envvar='AGNOSTIC_PASSWORD',
               metavar='<pass>',
               required=True,
@@ -75,7 +76,7 @@ pass_config = click.make_pass_decorator(Config, ensure=True)
               metavar='<schema>',
               required=True,
               help='Name of database schema.')
-@click.option('-d', '--migrations-dir',
+@click.option('-m', '--migrations-dir',
               default='migrations',
               envvar='AGNOSTIC_MIGRATIONS_DIR',
               metavar='<dir>',
@@ -125,6 +126,7 @@ def bootstrap(config, load_existing):
     try:
         create_table_sql = _get_create_table_sql(config.type)
         cursor.execute(create_table_sql)
+        print('after')
     except Exception as e:
         if config.debug:
             raise
@@ -182,11 +184,8 @@ def drop(config, yes):
 
 
 @click.command('list')
-@click.option('-p', '--pending',
-              is_flag=True,
-              help='Display pending migrations only.')
 @pass_config
-def list_(config, pending):
+def list_(config):
     '''
     List migrations.
 
@@ -261,7 +260,6 @@ def list_(config, pending):
             else:
                 raise ValueError('Invalid migration status: "{}".'
                                  .format(status))
-
     except Exception as e:
         if config.debug:
             raise
@@ -288,8 +286,9 @@ def migrate(config, backup):
     total = len(pending)
 
     if total == 0:
-        click.secho('There are no pending migrations.', fg='green')
-        return
+        raise click.ClickException(
+            click.style('There are no pending migrations.', fg='green')
+        )
 
     if backup:
         backup_file = tempfile.NamedTemporaryFile('w', delete=False)
@@ -331,6 +330,7 @@ def migrate(config, backup):
     if backup:
         click.echo('Removing backup "%s".' % backup_file.name)
         os.unlink(backup_file.name)
+
 
 @click.command()
 @click.argument('outfile', type=click.File('w'))

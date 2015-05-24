@@ -1,3 +1,4 @@
+from datetime import datetime
 import os
 import random
 import re
@@ -5,6 +6,7 @@ import unittest
 from unittest.mock import MagicMock, Mock, patch
 
 import click
+from click.testing import CliRunner
 
 import agnostic
 
@@ -21,92 +23,51 @@ def import_error(missing_dependency):
     return ie_helper
 
 
-class MockFileSystem(object):
-    ''' A quick and dirty mock for a file system. '''
-
-    def __init__(self, tree):
-        '''
-        Initialize file system with list ``tree``.
-
-        Each key of ``tree`` represents the name of a file or directory. The
-        corresponding key can either be None (indicating a leaf node, i.e.
-        a regular file) or a dictionary (indicating a subtree, i.e. directory).
-        '''
-
-        self.tree = tree
-
-    def __getitem__(self, path):
-        '''
-        Get a mock file system entry by its path.
-
-        This returns None if the path is a file, and it returns a dictionary
-        representing the subtree if the path is a directory.
-        '''
-
-        path = path.rstrip(os.sep)
-
-        if path == '':
-            return self.tree
-
-        path_components = list()
-        head, tail = os.path.split(path)
-        path_components.append(tail)
-
-        while head != '':
-            head, tail = os.path.split(head)
-            path_components.append(tail)
-
-        try:
-            item = self.tree
-            for path_component in reversed(path_components):
-                item = item[path_component]
-        except KeyError as ke:
-            msg = 'No such file or directory: "%s"'
-            raise FileNotFoundError(msg % path) from ke
-
-        return item
-
-    def listdir(self, path):
-        '''
-        List entries in the given directory.
-
-        Directory entires are intentionally shuffled in a deterministic way
-        to reflect the fact that os.listdir does not guarantee iteration order.
-        '''
-
-        dir_ = self[path]
-
-        if dir_ is None:
-            raise NotADirectoryError('Not a directory: "%s"' % path)
-        else:
-            files = list(dir_.keys())
-
-            prng = random.Random()
-            prng.seed('MockFileSystem')
-            random.shuffle(files, prng.random)
-
-            return files
-
-    def isdir(self, path):
-        ''' Return true if ``path`` is a directory. '''
-
-        return self[path] is not None
-
-    def isfile(self, path):
-        ''' Return true if ``path`` is a regular file. '''
-
-        return self[path] is None
+def make_file(name, data):
+    f = open(name, 'w')
+    f.write(data)
+    f.close()
 
 
 class test_agnostic(unittest.TestCase):
-    ''' Unit tests for Agnostic Database Migrations. '''
+    '''
+    Unit tests for Agnostic Database Migrations.
+
+    Most of these tests are not great... the interaction with the databases is
+    not easy to test against, particularly when the goal of the project is to
+    support many different database systems, each of which may require a
+    different approach.
+
+    Still, the test coverage still helps weed out a number of silly errors.
+    '''
+
+    def cli_args(self, type=None, host=None, port=None, user=None,
+                 password=None, schema=None, migrations_dir=None, debug=None):
+
+        ''' A helper for making command line arguments. '''
+
+        args = [
+            '-t', type or 'postgres',
+            '-h', host or 'localhost',
+            '-p', port or 1234,
+            '-u', user or 'myuser',
+            '--password', password or 'mypass',
+            '-s', 'myschema',
+            '-m', migrations_dir or 'migrations',
+        ]
+
+        if debug:
+            args.append('-d')
+
+        return args
 
     def config_fixture(self, db=None, host=None, migrations_dir=None,
                        password=None, port=None, schema=None, type=None,
                        user=None):
+
         ''' A helper for making config objects. '''
 
-        config = agnostic.Config
+        config = agnostic.Config()
 
         config.db = db or Mock()
         config.host = host or 'localhost'
@@ -118,6 +79,30 @@ class test_agnostic(unittest.TestCase):
         config.user = user or 'myuser'
 
         return config
+
+    def make_cursor(self, connect_db_mock):
+        ''' Make a mock database cursor and attach it to a _connect_db mock. '''
+
+        db = Mock()
+        cursor = Mock()
+        connect_db_mock.return_value = db
+        db.cursor.return_value = cursor
+
+        return cursor
+
+    def make_sample_files(self):
+        ''' Make some sample files to test against. '''
+
+        os.mkdir('migrations')
+        os.mkdir('migrations/01')
+        os.mkdir('migrations/04')
+
+        make_file('migrations/01/foo.sql', 'foo')
+        make_file('migrations/01/bar.sql', 'bar')
+        make_file('migrations/02_foobar.sql', 'foobar')
+        make_file('migrations/03_bazbat.sql', 'bazbat')
+        make_file('migrations/04/baz.sql', 'baz')
+        make_file('migrations/04/bat.sql', 'bat')
 
     @patch('subprocess.Popen')
     def test_backup(self, popen_mock):
@@ -140,6 +125,76 @@ class test_agnostic(unittest.TestCase):
 
         with self.assertRaises(ValueError):
             agnostic._backup(config, backup_file)
+
+    @patch('agnostic._bootstrap_migration')
+    @patch('agnostic._connect_db')
+    def test_bootstrap(self, connect_db_mock, bootstrap_mig_mock):
+        ''' The "bootstrap" CLI command. '''
+
+        runner = CliRunner()
+        cursor = self.make_cursor(connect_db_mock)
+        create_table_re = re.compile(r'create\s+table', flags=re.IGNORECASE)
+
+        with runner.isolated_filesystem():
+            self.make_sample_files()
+            cli_args = self.cli_args() + ['bootstrap']
+            result = runner.invoke(agnostic.cli, cli_args)
+
+        self.assertEqual(0, result.exit_code)
+        self.assertTrue(connect_db_mock.called)
+        self.assertTrue(cursor.execute.called)
+        self.assertRegex(cursor.execute.call_args[0][0], create_table_re)
+        # There are 6 migrations in self.make_sample_files:
+        self.assertEqual(6, bootstrap_mig_mock.call_count)
+
+    @patch('agnostic._bootstrap_migration')
+    @patch('agnostic._connect_db')
+    def test_bootstrap_fail(self, connect_db_mock,
+                                         bootstrap_mig_mock):
+        '''
+        The "bootstrap" CLI fails gracefully if it can't create the migrations
+        table or if a particular migration won't run.
+        '''
+
+        runner = CliRunner()
+        cursor = self.make_cursor(connect_db_mock)
+        cursor.execute.side_effect = ValueError
+
+        # Test failure in creating the migrations table.
+        with runner.isolated_filesystem():
+            self.make_sample_files()
+
+            cli_args1 = self.cli_args() + ['bootstrap']
+            result1 = runner.invoke(agnostic.cli, cli_args1)
+
+            cli_args2 = self.cli_args() + ['--debug', 'bootstrap']
+            result2 = runner.invoke(agnostic.cli, cli_args2)
+
+        self.assertNotEqual(0, result1.exit_code)
+        self.assertNotEqual(0, result2.exit_code)
+
+        # Non-debug mode returns a non-zero exit code.
+        cursor.execute.side_effect = None
+        bootstrap_mig_mock.side_effect = ValueError
+
+        with runner.isolated_filesystem():
+            self.make_sample_files()
+
+            cli_args3 = self.cli_args() + ['bootstrap']
+            result3 = runner.invoke(agnostic.cli, cli_args1)
+
+        self.assertNotEqual(0, result3.exit_code)
+        self.assertIsInstance(result3.exception, SystemExit)
+
+        # Debug mode raises an exception.
+        with runner.isolated_filesystem():
+            self.make_sample_files()
+
+            cli_args4 = self.cli_args() + ['--debug', 'bootstrap']
+            result4 = runner.invoke(agnostic.cli, cli_args2)
+
+        self.assertNotEqual(0, result4.exit_code)
+        self.assertIsInstance(result4.exception, ValueError)
 
     def test_bootstrap_migration(self):
         ''' Insert a migration into the migrations table. '''
@@ -171,24 +226,14 @@ class test_agnostic(unittest.TestCase):
 
     @patch('agnostic._connect_db')
     def test_clear_schema(self, connect_db_mock):
-        '''
-        Run SQL commands to clear a schema.
-
-        There's not a great test to run here -- the implementation could
-        change radically. So we just make sure that it executes a command
-        on the cursor.
-        '''
+        ''' Run SQL commands to clear a schema. '''
 
         config = self.config_fixture()
-        db = Mock()
-        cursor = Mock()
-        connect_db_mock.return_value = db
-        db.cursor.return_value = cursor
+        cursor = self.make_cursor(connect_db_mock)
 
         agnostic._clear_schema(config)
 
         self.assertTrue(connect_db_mock.called)
-        self.assertTrue(db.cursor.called)
         self.assertTrue(cursor.execute.called)
 
     def test_clear_schema_unsupported(self):
@@ -205,7 +250,7 @@ class test_agnostic(unittest.TestCase):
 
         config = self.config_fixture()
 
-        agnostic._clear_schema(config)
+        agnostic._connect_db(config)
 
         self.assertTrue(connect_mock.called)
         self.assertEqual(config.host, connect_mock.call_args[1]['host'])
@@ -230,6 +275,66 @@ class test_agnostic(unittest.TestCase):
 
         with self.assertRaises(ValueError):
             agnostic._connect_db(config)
+
+    @patch('agnostic._connect_db')
+    def test_drop(self, connect_db_mock):
+        ''' The "drop" CLI command with user typing 'y' on stdin. '''
+
+        runner = CliRunner()
+        cursor = self.make_cursor(connect_db_mock)
+        drop_table_re = re.compile(r'drop\s+table', flags=re.IGNORECASE)
+
+        with runner.isolated_filesystem():
+            self.make_sample_files()
+            cli_args = self.cli_args() + ['drop']
+            result = runner.invoke(agnostic.cli, cli_args, input='y')
+
+        self.assertEqual(0, result.exit_code)
+        self.assertTrue(cursor.execute.called)
+        self.assertRegex(cursor.execute.call_args[0][0], drop_table_re)
+
+    @patch('agnostic._connect_db')
+    def test_drop_abort(self, connect_db_mock):
+        ''' The "drop" CLI command with user typing 'n' on stdin. '''
+
+        runner = CliRunner()
+        cursor = self.make_cursor(connect_db_mock)
+        drop_table_re = re.compile(r'drop\s+table', flags=re.IGNORECASE)
+
+        with runner.isolated_filesystem():
+            self.make_sample_files()
+            cli_args = self.cli_args() + ['drop']
+            result = runner.invoke(agnostic.cli, cli_args, input='n')
+
+        self.assertNotEqual(0, result.exit_code)
+        self.assertFalse(cursor.execute.called)
+
+    @patch('agnostic._connect_db')
+    def test_drop_fail(self, connect_db_mock):
+        ''' The "drop" CLI command should fail gracefully. '''
+
+        runner = CliRunner()
+        cursor = self.make_cursor(connect_db_mock)
+        cursor.execute.side_effect = ValueError
+        drop_table_re = re.compile(r'drop\s+table', flags=re.IGNORECASE)
+
+        # Non-debug mode returns non-zero exit code.
+        with runner.isolated_filesystem():
+            self.make_sample_files()
+            cli_args1 = self.cli_args() + ['drop']
+            result1 = runner.invoke(agnostic.cli, cli_args1, input='y')
+
+        self.assertNotEqual(0, result1.exit_code)
+        self.assertIsInstance(result1.exception, SystemExit)
+
+        # Debug mode raises exception.
+        with runner.isolated_filesystem():
+            self.make_sample_files()
+            cli_args2 = self.cli_args() + ['--debug', 'drop']
+            result2 = runner.invoke(agnostic.cli, cli_args2, input='y')
+
+        self.assertNotEqual(0, result2.exit_code)
+        self.assertIsInstance(result2.exception, ValueError)
 
     def test_get_create_table_sql(self):
         ''' Generate the SQL for creating a table. '''
@@ -315,21 +420,91 @@ class test_agnostic(unittest.TestCase):
 
         self.assertEqual(expected_pending, actual_pending)
 
-    @patch('os.path.isdir')
-    @patch('os.path.isfile')
-    @patch('os.listdir')
-    def test_list_migration_files(self, listdir_mock, isfile_mock, isdir_mock):
+    @patch('agnostic._connect_db')
+    def test_list(self, connect_db_mock):
+        ''' The "list" CLI command. '''
+
+        runner = CliRunner()
+        cursor = self.make_cursor(connect_db_mock)
+        cursor.fetchall.return_value = [
+            ('01/bar', 'bootstrapped', datetime.now(), datetime.now()),
+            ('01/foo', 'bootstrapped', datetime.now(), datetime.now()),
+            ('02_foobar', 'succeeded', datetime.now(), datetime.now()),
+            ('04/bat', 'succeeded', datetime.now(), datetime.now()),
+        ]
+
+        with runner.isolated_filesystem():
+            self.make_sample_files()
+            cli_args = self.cli_args() + ['list']
+            result = runner.invoke(agnostic.cli, cli_args)
+
+        self.assertEqual(0, result.exit_code)
+        self.assertTrue(cursor.execute.called)
+        self.assertRegex(result.output, r'01/bar.*bootstrapped')
+        self.assertRegex(result.output, r'01/foo.*bootstrapped')
+        self.assertRegex(result.output, r'02_foobar.*succeeded')
+        self.assertRegex(result.output, r'03_bazbat.*pending')
+        self.assertRegex(result.output, r'04/bat.*succeeded')
+        self.assertRegex(result.output, r'04/baz.*pending')
+
+    @patch('agnostic._connect_db')
+    def test_list_no_migrations(self, connect_db_mock):
+        '''
+        The "list" CLI command fails gracefully if there are no migrations to
+        display.
+        '''
+
+        runner = CliRunner()
+        cursor = self.make_cursor(connect_db_mock)
+        cursor.fetchall.return_value = []
+
+        with runner.isolated_filesystem():
+            os.mkdir('migrations')
+            cli_args = self.cli_args() + ['list']
+            result = runner.invoke(agnostic.cli, cli_args)
+
+        self.assertNotEqual(0, result.exit_code)
+
+    @patch('agnostic._connect_db')
+    def test_list_invalid_status(self, connect_db_mock):
+        '''
+        The "list" CLI command fails gracefully if a migration has an invalid
+        status.
+        '''
+
+        runner = CliRunner()
+        cursor = self.make_cursor(connect_db_mock)
+        cursor.fetchall.return_value = [
+            ('01/bar', 'bootstrapped', datetime.now(), datetime.now()),
+            ('01/foo', 'bogus-status', datetime.now(), datetime.now()),
+        ]
+
+        # In non-debug mode, it exists with a non-zero status.
+        with runner.isolated_filesystem():
+            self.make_sample_files()
+            cli_args = self.cli_args() + ['list']
+            result1 = runner.invoke(agnostic.cli, cli_args)
+
+        self.assertNotEqual(0, result1.exit_code)
+        self.assertIsInstance(result1.exception, SystemExit)
+
+        # In debug mode, it raises an exception.
+        with runner.isolated_filesystem():
+            self.make_sample_files()
+            cli_args = self.cli_args() + ['--debug', 'list']
+            result2 = runner.invoke(agnostic.cli, cli_args)
+
+        self.assertNotEqual(0, result2.exit_code)
+        self.assertIsInstance(result2.exception, ValueError)
+
+    def test_list_migration_files(self):
         ''' List migrations on the file system in correct order. '''
 
-        file_system = MockFileSystem({
-            'migrations': {
-                '01': {'foo.sql': None, 'bar.sql': None},
-                '02_foobar.sql': None,
-                '03_bazbat.sql': None,
-                '04': {'baz.sql': None, 'bat.sql': None},
-            }
-        })
+        with CliRunner().isolated_filesystem():
+            self.make_sample_files()
+            actual_list = list(agnostic._list_migration_files('migrations'))
 
+        # Compare this list to the list of files in self.make_sample_files().
         expected_list = [
             '01/bar',
             '01/foo',
@@ -338,12 +513,6 @@ class test_agnostic(unittest.TestCase):
             '04/bat',
             '04/baz'
         ]
-
-        listdir_mock.side_effect = file_system.listdir
-        isfile_mock.side_effect = file_system.isfile
-        isdir_mock.side_effect = file_system.isdir
-
-        actual_list = list(agnostic._list_migration_files('migrations'))
 
         self.assertEqual(expected_list, actual_list)
 
@@ -390,6 +559,138 @@ class test_agnostic(unittest.TestCase):
 
         with self.assertRaises(ValueError):
             process = agnostic._make_snapshot(config, backup_file)
+
+    @patch('agnostic._run_migrations')
+    @patch('agnostic._backup')
+    @patch('agnostic._connect_db')
+    def test_migrate_backup(self, connect_db_mock, backup_mock, run_mig_mock):
+        ''' The "migrate" CLI command with --backup option. '''
+
+        runner = CliRunner()
+        cursor = self.make_cursor(connect_db_mock)
+        cursor.fetchall.return_value = [
+            ('01/bar', 'bootstrapped', datetime.now(), datetime.now()),
+            ('01/foo', 'bootstrapped', datetime.now(), datetime.now()),
+            ('02_foobar', 'succeeded', datetime.now(), datetime.now()),
+            ('04/bat', 'succeeded', datetime.now(), datetime.now()),
+        ]
+        process = Mock()
+        process.returncode = 0
+        backup_mock.return_value = process
+
+        with runner.isolated_filesystem():
+            self.make_sample_files()
+            cli_args = self.cli_args() + ['migrate', '--backup']
+            result = runner.invoke(agnostic.cli, cli_args)
+
+        self.assertEqual(0, result.exit_code)
+        self.assertTrue(cursor.execute.called)
+        self.assertTrue(backup_mock.called)
+        self.assertTrue(run_mig_mock.called)
+        self.assertRegex(result.output, r'run 2 migrations')
+
+    @patch('agnostic._restore')
+    @patch('agnostic._run_migrations')
+    @patch('agnostic._backup')
+    @patch('agnostic._connect_db')
+    def test_migrate_fail(self, connect_db_mock, backup_mock, run_mig_mock,
+                          restore_mock):
+        '''
+        If a migration fails, the "migrate" CLI command should handle it
+        gracefully.
+        '''
+
+        runner = CliRunner()
+        cursor = self.make_cursor(connect_db_mock)
+        cursor.fetchall.return_value = [
+            ('01/bar', 'bootstrapped', datetime.now(), datetime.now()),
+            ('01/foo', 'bootstrapped', datetime.now(), datetime.now()),
+            ('02_foobar', 'succeeded', datetime.now(), datetime.now()),
+            ('04/bat', 'succeeded', datetime.now(), datetime.now()),
+        ]
+        process = Mock()
+        process.returncode = 0
+        backup_mock.return_value = process
+        restore_mock.return_value = process
+        run_mig_mock.side_effect = ValueError
+
+        # In non-debug mode, should exit with non-zero code.
+        with runner.isolated_filesystem():
+            self.make_sample_files()
+            cli_args1 = self.cli_args() + ['migrate']
+            result1 = runner.invoke(agnostic.cli, cli_args1)
+
+        self.assertNotEqual(0, result1.exit_code)
+        self.assertIsInstance(result1.exception, SystemExit)
+
+        # In debug mode, should raise an exception.
+        with runner.isolated_filesystem():
+            self.make_sample_files()
+            cli_args2 = self.cli_args() + ['--debug', 'migrate']
+            result2 = runner.invoke(agnostic.cli, cli_args2)
+
+        self.assertNotEqual(0, result2.exit_code)
+        self.assertIsInstance(result2.exception, ValueError)
+
+    @patch('agnostic._run_migrations')
+    @patch('agnostic._backup')
+    @patch('agnostic._connect_db')
+    def test_migrate_no_backup(self, connect_db_mock, backup_mock, run_mig_mock):
+        ''' The "migrate" CLI command with no --backup option. '''
+
+        runner = CliRunner()
+        cursor = self.make_cursor(connect_db_mock)
+        cursor.fetchall.return_value = [
+            ('01/bar', 'bootstrapped', datetime.now(), datetime.now()),
+            ('01/foo', 'bootstrapped', datetime.now(), datetime.now()),
+            ('02_foobar', 'succeeded', datetime.now(), datetime.now()),
+            ('04/bat', 'succeeded', datetime.now(), datetime.now()),
+        ]
+        process = Mock()
+        process.returncode = 0
+        backup_mock.return_value = process
+
+        with runner.isolated_filesystem():
+            self.make_sample_files()
+            cli_args = self.cli_args() + ['migrate', '--no-backup']
+            result = runner.invoke(agnostic.cli, cli_args)
+
+        self.assertEqual(0, result.exit_code)
+        self.assertTrue(cursor.execute.called)
+        self.assertFalse(backup_mock.called)
+        self.assertTrue(run_mig_mock.called)
+        self.assertRegex(result.output, r'run 2 migrations')
+
+    @patch('agnostic._run_migrations')
+    @patch('agnostic._backup')
+    @patch('agnostic._connect_db')
+    def test_migrate_no_migrations(self, connect_db_mock, backup_mock, run_mig_mock):
+        '''
+        The "migrate" CLI command should exit gracefully if there are no
+        migrations to run.
+        '''
+
+        runner = CliRunner()
+        cursor = self.make_cursor(connect_db_mock)
+        cursor.fetchall.return_value = [
+            ('01/bar', 'bootstrapped', datetime.now(), datetime.now()),
+            ('01/foo', 'bootstrapped', datetime.now(), datetime.now()),
+            ('02_foobar', 'succeeded', datetime.now(), datetime.now()),
+            ('03_bazbat', 'succeeded', datetime.now(), datetime.now()),
+            ('04/bat', 'succeeded', datetime.now(), datetime.now()),
+            ('04/baz', 'succeeded', datetime.now(), datetime.now()),
+        ]
+        process = Mock()
+        process.returncode = 0
+        backup_mock.return_value = process
+
+        with runner.isolated_filesystem():
+            self.make_sample_files()
+            cli_args = self.cli_args() + ['migrate']
+            result = runner.invoke(agnostic.cli, cli_args)
+
+        self.assertNotEqual(0, result.exit_code)
+        self.assertIsInstance(result.exception, SystemExit)
 
     @patch('subprocess.Popen')
     def test_restore(self, popen_mock):
@@ -455,6 +756,98 @@ class test_agnostic(unittest.TestCase):
 
         with self.assertRaises(ValueError):
             process = agnostic._run_migration_file(config, backup_file)
+
+    @patch('agnostic._make_snapshot')
+    def test_snapshot(self, make_snapshot_mock):
+        ''' The "snapshot" CLI command. '''
+
+        runner = CliRunner()
+        process = Mock()
+        process.returncode = 0
+        make_snapshot_mock.return_value = process
+
+        with runner.isolated_filesystem():
+            self.make_sample_files()
+            cli_args = self.cli_args() + ['snapshot', 'out.sql']
+            result = runner.invoke(agnostic.cli, cli_args)
+
+        self.assertEqual(0, result.exit_code)
+        self.assertTrue(make_snapshot_mock.called)
+
+    @patch('difflib.unified_diff')
+    @patch('agnostic._run_migrations')
+    @patch('agnostic._get_pending_migrations')
+    @patch('agnostic._make_snapshot')
+    @patch('agnostic._load_snapshot')
+    @patch('agnostic._clear_schema')
+    @patch('agnostic._connect_db')
+    def test_test_y(self, connect_db_mock, clear_schema_mock, load_snap_mock,
+                    make_snap_mock, pending_mig_mock, run_mig_mock, diff_mock):
+        '''
+        The "test" CLI command.
+
+        This test is awwwwwwwful.
+        '''
+
+        runner = CliRunner()
+        cursor = self.make_cursor(connect_db_mock)
+        process = Mock()
+        process.returncode = 0
+        load_snap_mock.return_value = process
+        make_snap_mock.return_value = process
+        diff_mock.return_value = []
+
+        # Should succeed with empty diff.
+        with runner.isolated_filesystem():
+            self.make_sample_files()
+
+            with open('current.sql', 'w') as current:
+                current.write('current')
+
+            with open('target.sql', 'w') as target:
+                target.write('target')
+
+            cli_args2 = self.cli_args() + ['test', 'current.sql', 'target.sql']
+            result1 = runner.invoke(agnostic.cli, cli_args2, input='y')
+
+        self.assertEqual(0, result1.exit_code)
+        self.assertTrue(clear_schema_mock.called)
+        self.assertTrue(load_snap_mock.called)
+        self.assertTrue(pending_mig_mock.called)
+        self.assertTrue(run_mig_mock.called)
+        self.assertTrue(make_snap_mock.called)
+
+        # Should abort if user types 'n'.
+        with runner.isolated_filesystem():
+            self.make_sample_files()
+
+            with open('current.sql', 'w') as current:
+                current.write('current')
+
+            with open('target.sql', 'w') as target:
+                target.write('target')
+
+            cli_args2 = self.cli_args() + ['test', 'current.sql', 'target.sql']
+            result2 = runner.invoke(agnostic.cli, cli_args2, input='n')
+
+        self.assertNotEqual(0, result2.exit_code)
+
+        # Should fail with with non-empty diff.
+        diff_mock.return_value = ['foo']
+
+        with runner.isolated_filesystem():
+            self.make_sample_files()
+
+            with open('current.sql', 'w') as current:
+                current.write('current')
+
+            with open('target.sql', 'w') as target:
+                target.write('target')
+
+            cli_args3 = self.cli_args() + ['test', 'current.sql', 'target.sql']
+            result3 = runner.invoke(agnostic.cli, cli_args3, input='y')
+
+        self.assertNotEqual(0, result3.exit_code)
 
     def test_wait_for_process (self):
         ''' Wait for process to finish. '''
