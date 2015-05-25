@@ -7,7 +7,10 @@ Contents:
    :maxdepth: 2
 
    overview
-   installation
+   install
+   cli
+   design
+   workflow
    credits
 
 

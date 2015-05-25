@@ -126,7 +126,6 @@ def bootstrap(config, load_existing):
     try:
         create_table_sql = _get_create_table_sql(config.type)
         cursor.execute(create_table_sql)
-        print('after')
     except Exception as e:
         if config.debug:
             raise
@@ -414,7 +413,7 @@ def test(config, yes, current, target):
     diff = list(difflib.unified_diff(
         temp_snapshot.readlines(),
         target.readlines(),
-        fromfile='Current Schema',
+        fromfile='Migrated Schema',
         tofile='Target Schema'
     ))
 
@@ -582,7 +581,7 @@ def _list_migration_files(migrations_dir, sub_path=''):
     migration_prefix_len = len(migrations_dir) + 1
     current_dir = os.path.join(migrations_dir, sub_path)
 
-    for dir_entry in sorted(os.listdir(current_dir)):
+    for dir_entry in sorted(os.listdir(current_dir), key=str.upper):
         dir_entry_path = os.path.join(current_dir, dir_entry)
 
         if os.path.isfile(dir_entry_path) and dir_entry.endswith('.sql'):
