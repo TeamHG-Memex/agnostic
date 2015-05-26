@@ -104,6 +104,28 @@ class test_agnostic(unittest.TestCase):
         make_file('migrations/04/baz.sql', 'baz')
         make_file('migrations/04/bat.sql', 'bat')
 
+    def test_any_failed_migrations_true(self):
+        ''' Return True if there are any failed migrations. '''
+
+        cursor = Mock()
+        cursor.execute.return_value = (1,)
+
+        result = agnostic._any_failed_migrations(cursor)
+
+        self.assertTrue(cursor.execute.called)
+        self.assertTrue(result)
+
+    def test_any_failed_migrations_false(self):
+        ''' Return False if there are zero failed migrations. '''
+
+        cursor = Mock()
+        cursor.execute.return_value = (0,)
+
+        result = agnostic._any_failed_migrations(cursor)
+
+        self.assertTrue(cursor.execute.called)
+        self.assertFalse(result)
+
     @patch('subprocess.Popen')
     def test_backup(self, popen_mock):
         ''' Create a backup. '''
@@ -560,10 +582,12 @@ class test_agnostic(unittest.TestCase):
         with self.assertRaises(ValueError):
             process = agnostic._make_snapshot(config, backup_file)
 
+    @patch('agnostic._any_failed_migrations')
     @patch('agnostic._run_migrations')
     @patch('agnostic._backup')
     @patch('agnostic._connect_db')
-    def test_migrate_backup(self, connect_db_mock, backup_mock, run_mig_mock):
+    def test_migrate_backup(self, connect_db_mock, backup_mock, run_mig_mock,
+                            any_failed_mock):
         ''' The "migrate" CLI command with --backup option. '''
 
         runner = CliRunner()
@@ -577,6 +601,7 @@ class test_agnostic(unittest.TestCase):
         process = Mock()
         process.returncode = 0
         backup_mock.return_value = process
+        any_failed_mock.return_value = False
 
         with runner.isolated_filesystem():
             self.make_sample_files()
@@ -589,12 +614,13 @@ class test_agnostic(unittest.TestCase):
         self.assertTrue(run_mig_mock.called)
         self.assertRegex(result.output, r'run 2 migrations')
 
+    @patch('agnostic._any_failed_migrations')
     @patch('agnostic._restore')
     @patch('agnostic._run_migrations')
     @patch('agnostic._backup')
     @patch('agnostic._connect_db')
     def test_migrate_fail(self, connect_db_mock, backup_mock, run_mig_mock,
-                          restore_mock):
+                          restore_mock, any_failed_mock):
         '''
         If a migration fails, the "migrate" CLI command should handle it
         gracefully.
@@ -613,6 +639,7 @@ class test_agnostic(unittest.TestCase):
         backup_mock.return_value = process
         restore_mock.return_value = process
         run_mig_mock.side_effect = ValueError
+        any_failed_mock.return_value = False
 
         # In non-debug mode, should exit with non-zero code.
         with runner.isolated_filesystem():
@@ -632,10 +659,12 @@ class test_agnostic(unittest.TestCase):
         self.assertNotEqual(0, result2.exit_code)
         self.assertIsInstance(result2.exception, ValueError)
 
+    @patch('agnostic._any_failed_migrations')
     @patch('agnostic._run_migrations')
     @patch('agnostic._backup')
     @patch('agnostic._connect_db')
-    def test_migrate_no_backup(self, connect_db_mock, backup_mock, run_mig_mock):
+    def test_migrate_no_backup(self, connect_db_mock, backup_mock, run_mig_mock,
+                               any_failed_mock):
         ''' The "migrate" CLI command with no --backup option. '''
 
         runner = CliRunner()
@@ -649,6 +678,7 @@ class test_agnostic(unittest.TestCase):
         process = Mock()
         process.returncode = 0
         backup_mock.return_value = process
+        any_failed_mock.return_value = False
 
         with runner.isolated_filesystem():
             self.make_sample_files()
@@ -661,10 +691,12 @@ class test_agnostic(unittest.TestCase):
         self.assertTrue(run_mig_mock.called)
         self.assertRegex(result.output, r'run 2 migrations')
 
+    @patch('agnostic._any_failed_migrations')
     @patch('agnostic._run_migrations')
     @patch('agnostic._backup')
     @patch('agnostic._connect_db')
-    def test_migrate_no_migrations(self, connect_db_mock, backup_mock, run_mig_mock):
+    def test_migrate_no_migrations(self, connect_db_mock, backup_mock,
+                                   run_mig_mock, any_failed_mock):
         '''
         The "migrate" CLI command should exit gracefully if there are no
         migrations to run.
@@ -683,6 +715,27 @@ class test_agnostic(unittest.TestCase):
         process = Mock()
         process.returncode = 0
         backup_mock.return_value = process
+        any_failed_mock.return_value = False
+
+        with runner.isolated_filesystem():
+            self.make_sample_files()
+            cli_args = self.cli_args() + ['migrate']
+            result = runner.invoke(agnostic.cli, cli_args)
+
+        self.assertNotEqual(0, result.exit_code)
+        self.assertIsInstance(result.exception, SystemExit)
+
+    @patch('agnostic._any_failed_migrations')
+    @patch('agnostic._connect_db')
+    def test_migrate_previously_failed(self, connect_db_mock, any_failed_mock):
+        '''
+        The "migrate" CLI command should exit gracefully if there are any
+        previously failed migrations.
+        '''
+
+        runner = CliRunner()
+        cursor = self.make_cursor(connect_db_mock)
+        any_failed_mock.return_value = True
 
         with runner.isolated_filesystem():
             self.make_sample_files()

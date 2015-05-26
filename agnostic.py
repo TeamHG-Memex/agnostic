@@ -281,6 +281,12 @@ def migrate(config, backup):
     db.autocommit = True
     cursor = db.cursor()
 
+    if _any_failed_migrations(cursor):
+        raise click.ClickException(
+            click.style('Cannot run due to previously failed migrations.',
+                        fg='red')
+        )
+
     pending = _get_pending_migrations(config, cursor)
     total = len(pending)
 
@@ -439,6 +445,17 @@ cli.add_command(test)
 cli.add_command(migrate)
 
 
+def _any_failed_migrations(cursor):
+    ''' Return True if there are any failed migrations, false otherwise. '''
+
+    result = cursor.execute('''
+        SELECT COUNT(*) FROM "agnostic_migrations"
+        WHERE "status" LIKE '%s';
+    ''' % MIGRATION_STATUS_FAILED)
+
+    return result[0] != 0
+
+
 def _backup(config, backup_file):
     ''' Backup the schema to the given file handle. '''
 
@@ -465,6 +482,7 @@ def _backup(config, backup_file):
     else:
         raise ValueError('Database type "%s" not supported.' % config.type)
 
+
 def _bootstrap_migration(type_, cursor, migration):
     '''
     Insert a migration into the migrations table and mark it as having been
@@ -483,6 +501,7 @@ def _bootstrap_migration(type_, cursor, migration):
     else:
         raise ValueError('Database type "%s" not supported.' % type_)
 
+
 def _clear_schema(config):
     ''' Drop the current schema and then recreate it. '''
 
@@ -500,6 +519,7 @@ def _clear_schema(config):
         db.close()
     else:
         raise ValueError('Database type "%s" not supported.' % config.type)
+
 
 def _connect_db(config):
     ''' Return a DB connection. '''
@@ -762,6 +782,7 @@ def _wait_for(process):
         )
 
         raise click.ClickException(msg % params)
+
 
 if __name__ == '__main__':
     cli()
