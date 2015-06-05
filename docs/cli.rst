@@ -86,6 +86,55 @@ debug
     ``AGNOSTIC_PASSWORD`` variable in your environment, but be wary of storing
     this password on disk in a world-readable ``.profile`` or ``.bashrc``.
 
+(Lack Of) Configuration
+-----------------------
+
+Avatar prefers convention over configuration, and in order to avoid the need for
+configuration files, Agnostic takes all of its configurations as command line
+arguments. This design makes Agnostic easier to learn, but it may result in more
+typing, since the configuration needs to be passed into Agnostic each time you
+run it.
+
+If you prefer to use a configuration file, here are two ways to do that.
+
+1. Set up an alias.
+2. Set up an environment file.
+
+The first idea is obvious to shell power users: set up an alias (e.g. in your
+``~/.profile`` or ``~/.bash_aliases``) for Agnostic, like this:
+
+.. code:: bash
+
+    alias ag=agnostic -h myhost -t postgres -u myuser -s myapp -m /opt/myapp/migrations
+
+Now you can run shorter commands like ``ag snapshot foo.sql`` or ``ag migrate``.
+This approach may be a bit limiting if you have multiple projects and each
+project has different database settings.
+
+The second approach is a bit more flexible when dealing with multiple projects.
+Create a file that contains Agnostic environment variables and put it in your
+project's root directory. Let's call it ``.agnostic_env``.
+
+.. code:: bash
+
+    export AGNOSTIC_HOST=myhost
+    export AGNOSTIC_USER=myuser
+    export AGNOSTIC_TYPE=postgres
+    export AGNOSTIC_SCHEMA=myapp
+    export AGNOSTIC_MIGRATIONS_DIR=/opt/myapp/migrations
+
+When you are working on a project, source these environment variables into your
+shell:
+
+.. code:: bash
+
+    /opt/myapp $ source .agnostic_env
+
+Now you can run commands like ``agnostic snapshot foo.sql`` and ``agnostic
+migrate`` and Agnostic will read the parameters from your environment variables.
+When you switch to work on another project, you just need to source that
+project's ``.agnostic_env``.
+
 bootstrap
 ---------
 
