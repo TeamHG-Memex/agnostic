@@ -252,6 +252,7 @@ class test_agnostic(unittest.TestCase):
 
         config = self.config_fixture()
         cursor = self.make_cursor(connect_db_mock)
+        cursor.fetchall.return_value = [('dark_site',),('dark_user')]
 
         agnostic._clear_schema(config)
 

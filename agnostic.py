@@ -503,19 +503,35 @@ def _bootstrap_migration(type_, cursor, migration):
 
 
 def _clear_schema(config):
-    ''' Drop the current schema and then recreate it. '''
+    ''' Drop all tables (and related objects) in the the current schema. '''
 
     if config.type == 'postgres':
-        # Can't delete the schema if we're logged into it, so use the default
-        # 'postgres' database instead.
-        temp_config = copy(config)
-        temp_config.schema = 'postgres'
-        db = _connect_db(temp_config)
+        db = _connect_db(config)
         db.autocommit = True
-
         cursor = db.cursor()
-        cursor.execute('DROP DATABASE %s' % config.schema)
-        cursor.execute('CREATE DATABASE %s' % config.schema)
+
+        cursor.execute('''
+            SELECT tablename FROM pg_tables
+             WHERE tableowner = %s
+               AND schemaname != 'pg_catalog'
+               AND schemaname != 'information_schema'
+        ''', (config.schema,))
+
+        tables = ['"%s"' % row[0] for row in cursor.fetchall()]
+
+        if len(tables) > 0:
+            cursor.execute('DROP TABLE %s CASCADE' % ','.join(tables))
+
+        cursor.execute('''
+            SELECT relname FROM pg_class
+             WHERE relkind = 'S'
+        ''')
+
+        sequences = ['"%s"' % row[0] for row in cursor.fetchall()]
+
+        if len(sequences) > 0:
+            cursor.execute('DROP SEQUENCE %s CASCADE' % ','.join(sequences))
+
         db.close()
     else:
         raise ValueError('Database type "%s" not supported.' % config.type)
@@ -531,14 +547,20 @@ def _connect_db(config):
             msg = 'psycopg2 module is required for Postgres.'
             raise click.ClickException(msg) from e
 
-        return psycopg2.connect(
-            host=config.host,
-            port=config.port,
-            user=config.user,
-            password=config.password,
-            database=config.schema
-        )
-
+        try:
+            return psycopg2.connect(
+                host=config.host,
+                port=config.port,
+                user=config.user,
+                password=config.password,
+                database=config.schema
+            )
+        except Exception as e:
+            if config.debug:
+                raise
+            else:
+                err = 'Unable to connect to database: %s'
+                raise click.ClickException(err % str(e)) from e
     else:
         raise ValueError('Database type "%s" not supported.' % config.type)
 
@@ -667,6 +689,7 @@ def _make_snapshot(config, outfile):
             '-U', config.user,
             '-s', # dump schema only
             '-x', # don't dump grant/revoke statements
+            '-O', # don't dump ownership commands
             '--no-tablespaces',
             config.schema,
         ]
