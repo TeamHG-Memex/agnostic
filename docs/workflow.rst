@@ -149,11 +149,13 @@ that the ORM generated.
 Here's a possible testing process:
 
 1. Load a "current" snapshot of the schema.
-2. Runs migrations on the current snapshot.
+2. Run migrations on the current snapshot.
 3. Snapshot this new, migrated schema.
-4. Compare the migrated snapshot to a target snapshot.
-5. If there are any diferences between the snapshots, then the test fails.
-6. If the snapshots are identical, then the test passes and we can go to lunch
+4. Build a new schema using your ORM.
+5. Snapshot this ORM-built schema.
+6. Compare the migrated snapshot to the target snapshot.
+7. If there are any diferences between the snapshots, then the test fails.
+8. If the snapshots are identical, then the test passes and we can go to lunch
    early!
 
 Sounds like a lot of thankless, tedious work, right?

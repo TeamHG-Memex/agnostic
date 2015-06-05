@@ -298,7 +298,7 @@ Most migration systems are part of an ORM, and most ORMs have an option to
 define the schema using a native API, then generate SQL statements to build that
 schema. This naturally leads to a difficult question:
 
-    *How do we ensure that the build process always results in the same, exact
+    *How do we ensure that the build process always results in the same exact
     schema as migrating?*
 
 This is deceptively difficult. Small difference in schemas across multiple
