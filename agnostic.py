@@ -448,12 +448,12 @@ cli.add_command(migrate)
 def _any_failed_migrations(cursor):
     ''' Return True if there are any failed migrations, false otherwise. '''
 
-    result = cursor.execute('''
+    cursor.execute('''
         SELECT COUNT(*) FROM "agnostic_migrations"
         WHERE "status" LIKE '%s';
     ''' % MIGRATION_STATUS_FAILED)
 
-    return result[0] != 0
+    return cursor.fetchone()[0] != 0
 
 
 def _backup(config, backup_file):

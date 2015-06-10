@@ -108,7 +108,7 @@ class test_agnostic(unittest.TestCase):
         ''' Return True if there are any failed migrations. '''
 
         cursor = Mock()
-        cursor.execute.return_value = (1,)
+        cursor.fetchone.return_value = (1,)
 
         result = agnostic._any_failed_migrations(cursor)
 
@@ -119,7 +119,7 @@ class test_agnostic(unittest.TestCase):
         ''' Return False if there are zero failed migrations. '''
 
         cursor = Mock()
-        cursor.execute.return_value = (0,)
+        cursor.fetchone.return_value = (0,)
 
         result = agnostic._any_failed_migrations(cursor)
 
