@@ -812,7 +812,8 @@ class test_agnostic(unittest.TestCase):
             process = agnostic._run_migration_file(config, backup_file)
 
     @patch('agnostic._make_snapshot')
-    def test_snapshot(self, make_snapshot_mock):
+    @patch('agnostic._migration_insert_sql')
+    def test_snapshot(self, insert_sql_mock, make_snapshot_mock):
         ''' The "snapshot" CLI command. '''
 
         runner = CliRunner()
@@ -835,8 +836,10 @@ class test_agnostic(unittest.TestCase):
     @patch('agnostic._load_snapshot')
     @patch('agnostic._clear_schema')
     @patch('agnostic._connect_db')
-    def test_test_y(self, connect_db_mock, clear_schema_mock, load_snap_mock,
-                    make_snap_mock, pending_mig_mock, run_mig_mock, diff_mock):
+    @patch('agnostic._migration_insert_sql')
+    def test_test_y(self, insert_sql_mock, connect_db_mock, clear_schema_mock,
+                    load_snap_mock, make_snap_mock, pending_mig_mock,
+                    run_mig_mock, diff_mock):
         '''
         The "test" CLI command.
 

@@ -352,6 +352,7 @@ def snapshot(config, outfile):
     click.echo('Creating snapshot...')
 
     _wait_for(_make_snapshot(config, outfile))
+    _migration_insert_sql(config, outfile)
 
     click.secho('Snapshot written to "%s".' % outfile.name, fg='green')
 
@@ -411,6 +412,7 @@ def test(config, yes, current, target):
     # Dump the migrated schema to the temp file.
     click.echo('Snapshotting the migrated schema.')
     _wait_for(_make_snapshot(config, temp_snapshot))
+    _migration_insert_sql(config, temp_snapshot)
 
     # Compare the migrated schema to the target schema.
     click.echo('Comparing migrated schema to target schema.')
@@ -705,6 +707,17 @@ def _make_snapshot(config, outfile):
 
     else:
         raise ValueError('Database type "%s" not supported.' % config.type)
+
+
+def _migration_insert_sql(config, outfile):
+    ''' Write SQL for inserting migration metadata to `outfile`. '''
+
+    db = _connect_db(config)
+    cursor = db.cursor()
+    insert = "INSERT INTO agnostic_migrations VALUES ('{}', '{}', NOW(), NOW());\n"
+
+    for migration in _get_migration_records(cursor):
+        outfile.write(insert.format(migration[0], MIGRATION_STATUS_SUCCEEDED))
 
 
 def _restore(config, backup_file):
