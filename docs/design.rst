@@ -61,7 +61,7 @@ reasons:
    migrations* have "down" scripts. If even a single migration lacks a "down"
    script, then there is no possibility for downgrading.
 4. The need for downgrading a schema in production is very rare; for those use
-   cases where its valuable, a backup may be faster, easier, and safer.
+   cases where it is valuable, a backup may be faster, easier, and safer.
 
 There are many limitations and caveats on "down" scripts, and in years of
 development work, this author has decided that the costs far outweight any
@@ -338,7 +338,7 @@ When you first bootstrap Agnostic on a given schema, it loads all of the
 existing migrations and sets their statuses to ``boostrapped`` — but it doesn't
 actually execute any of them. This special status indicates that these are
 migrations that already exist in the current schema, but instead of being put
-there by running migration scripts, they were but their by the ORM's schema
+there by running migration scripts, they were put their by the ORM's schema
 build tool.
 
 When Agnostic sees this status, it will know that it does not need to run these

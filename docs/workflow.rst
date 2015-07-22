@@ -112,7 +112,7 @@ Let's compare these two schemas to identify the differences.
 
 .. code:: bash
 
-    ~/myapp $ agnostic -t postgres -u myuser -s myapp snapshot target.sql
+    ~/myapp $ diff current.sql target.sql
     51c51,52
     <     phone character varying(255)
     ---
@@ -154,7 +154,7 @@ Here's a possible testing process:
 4. Build a new schema using your ORM.
 5. Snapshot this ORM-built schema.
 6. Compare the migrated snapshot to the target snapshot.
-7. If there are any diferences between the snapshots, then the test fails.
+7. If there are any differences between the snapshots, then the test fails.
 8. If the snapshots are identical, then the test passes and we can go to lunch
    early!
 
