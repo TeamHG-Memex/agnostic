@@ -517,7 +517,7 @@ def _clear_schema(config):
              WHERE tableowner = %s
                AND schemaname != 'pg_catalog'
                AND schemaname != 'information_schema'
-        ''', (config.schema,))
+        ''', (config.user,))
 
         tables = ['"%s"' % row[0] for row in cursor.fetchall()]
 

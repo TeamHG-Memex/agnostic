@@ -108,9 +108,9 @@ Agnostic will scan this directory and enumerate the following migration names:
     zero_balance_constraint
 
 Each migration has been named by taking its path (relative to the ``migrations``
-directory) and removing the ``.sql`` suffix. If any file does not have a
-``.sql`` suffix to begin with, then it is ignored. The names are sorted, case
-insensitive so that they will always be applied in a deterministic order.
+directory) and removing the ``.sql`` suffix. Files without a ``.sql`` suffix are
+ignored. The names are sorted (case insensitive) so that they will always be
+applied in a deterministic order.
 
 .. danger::
 
@@ -195,8 +195,8 @@ are some ideas:
    they belong in the same migration script. Try combining them into a single
    SQL script where the statements are re-ordered to solve the dependency.
 2. Re-order the migrations by prefixing the file names with special characters.
-   An ampersand (``@``) sorts to the top, while an underscore (``_``) sorts to
-   the bottom.
+   An at-sign (``@``) sorts to the top, while an underscore (``_``) sorts to the
+   bottom.
 3. If you have dozens or hundreds of migration scripts per version, then the
    special character approach may get cumbersome. Try moving the scripts that
    have dependency conflicts on each other into a subdirectory together, and

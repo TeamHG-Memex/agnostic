@@ -89,11 +89,11 @@ debug
 (Lack Of) Configuration
 -----------------------
 
-Avatar prefers convention over configuration, and in order to avoid the need for
-configuration files, Agnostic takes all of its configurations as command line
-arguments. This design makes Agnostic easier to learn, but it may result in more
-typing, since the configuration needs to be passed into Agnostic each time you
-run it.
+Agnostic prefers convention over configuration, and in order to avoid the need
+for configuration files, Agnostic takes all of its configurations as command
+line arguments. This design makes Agnostic easier to learn, but it may result in
+more typing, since the configuration needs to be passed into Agnostic each time
+you run it.
 
 If you prefer to use a configuration file, here are two ways to do that.
 
