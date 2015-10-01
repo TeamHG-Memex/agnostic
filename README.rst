@@ -15,7 +15,7 @@ Here is an absurdly brief introduction to Agnostic:
 
 .. code:: bash
 
-    ~/myapp $ pip install agnostic
+    ~/myapp $ pip3 install agnostic # Notice: python3 only!
     <snip>
 
     ~/myapp $ mkdir migrations

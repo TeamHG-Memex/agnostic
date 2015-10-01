@@ -418,9 +418,13 @@ def test(config, yes, current, target):
     click.echo('Comparing migrated schema to target schema.')
     temp_snapshot.seek(0)
 
+    ignore = 'INSERT INTO agnostic_migrations'
+    migrated = [line for line in temp_snapshot if not line.startswith(ignore)]
+    targeted = [line for line in target if not line.startswith(ignore)]
+
     diff = list(difflib.unified_diff(
-        temp_snapshot.readlines(),
-        target.readlines(),
+        migrated,
+        targeted,
         fromfile='Migrated Schema',
         tofile='Target Schema'
     ))

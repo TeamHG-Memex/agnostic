@@ -3,7 +3,7 @@ from setuptools import setup
 
 setup(
     name='agnostic',
-    version='0.5',
+    version='0.6',
     author='Mark E. Haase',
     author_email='mehaase@gmail.com',
     description='Agnostic Database Migrations',
