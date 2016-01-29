@@ -538,6 +538,16 @@ def _clear_schema(config):
         if len(sequences) > 0:
             cursor.execute('DROP SEQUENCE %s CASCADE' % ','.join(sequences))
 
+        cursor.execute('''
+            SELECT typname FROM pg_type
+             WHERE typtype = 'e'
+        ''')
+
+        types = ['"%s"' % row[0] for row in cursor.fetchall()]
+
+        if len(types) > 0:
+            cursor.execute('DROP TYPE %s CASCADE' % ','.join(types))
+
         db.close()
     else:
         raise ValueError('Database type "%s" not supported.' % config.type)
