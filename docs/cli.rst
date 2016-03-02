@@ -24,10 +24,12 @@ subcommands:
       -u, --user <user>           Database username.  [required]
       --password <pass>           Database password. If omitted, the password must
                                   be entered on stdin.  [required]
-      -s, --schema <schema>       Name of database schema.  [required]
+      -d, --database <database>   Name of database to target.  [required]
+      -s, --schema <schema>       The default schema to use when connecting to the
+                                  database.
       -m, --migrations-dir <dir>  Path to migrations directory. (default:
                                   ./migrations)  [required]
-      -d, --debug                 Display stack traces when exceptions occur.
+      -D, --debug                 Display stack traces when exceptions occur.
       --version                   Show the version and exit.
       --help                      Show this message and exit.
 
@@ -64,9 +66,13 @@ password
     **(Required)** The password associated with the user. If omitted, you will
     be prompted to type the password on ``stdin``. May be specified as
     ``AGNOSTIC_PASSWORD`` environment variable instead. (See warning below.)
+database
+    **(Required)** The name of the database that is being managed by Agnostic.
+    May be specified as ``AGNOSTIC_DATABASE`` environment variable instead.
 schema
-    **(Required)** The name of the schema that is being managed by Agnostic. May
-    be specified as ``AGNOSTIC_SCHEMA`` environment variable instead.
+    **(Optional)** The schema to run all commands inside of. For Postgres, this
+    is equivalent to ``SET search_path TO ...``, and a comma-separated list of
+    schemas is allowed. MySQL and SQLite do not support schemas.
 migrations-dir
     **(Optional)** Path to the directory that contains migration scripts. If
     not specified, it defaults to ``migrations`` in the current working
@@ -120,7 +126,7 @@ project's root directory. Let's call it ``.agnostic_env``.
     export AGNOSTIC_HOST=myhost
     export AGNOSTIC_USER=myuser
     export AGNOSTIC_TYPE=postgres
-    export AGNOSTIC_SCHEMA=myapp
+    export AGNOSTIC_DATABASE=myapp
     export AGNOSTIC_MIGRATIONS_DIR=/opt/myapp/migrations
 
 When you are working on a project, source these environment variables into your

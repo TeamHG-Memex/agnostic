@@ -8,12 +8,25 @@ The best way to understand Agnostic is to learn how it works under the hood and
 the reasoning that supports its design. Both of these aspects are very simple —
 I promise! The conceptual simplicity of Agnostic is one of its strong points.
 
-Before we begin, we need to define a term that is used throughout this
-documentation, but this term is used differently by various SQL database
-vendors: *schema*. We define *schema* to mean a named collection of tables and
-related objects. It's the thing that defines the shape and structure of your
-data. It's the thing that Agnostic manages for you. We use the term *database*
-in this documentation to refer to the product and/or server daemon.
+Before we begin, we need to define a few terms that are occasionally overloaded
+by database vendors.
+
+.. note::
+
+    We define `schema <https://en.wikipedia.org/wiki/Database_schema>`_ to mean
+    the logical structure of your data, e.g. the tables, types, and constraints,
+    written in a `data definition language
+    <https://en.wikipedia.org/wiki/Data_definition_language>`_. It's the thing
+    that Agnostic manages for you.
+
+    Some database products [unfortunately] define *schema* to be a logical
+    grouping of database objects. We avoid such usage of the word in this
+    documentation, but the command line interface does use the ``-s/--schema``
+    argument in this sense.
+
+    We define the term *database* to refer to the product, server daemon
+    process, and/or highest level container for all database objects. Although
+    this definition is broad, it is consistent with most vendors' terminology.
 
 Now, let's quickly review the essential elements of Agnostic's design…
 

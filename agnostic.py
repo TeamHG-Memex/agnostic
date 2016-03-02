@@ -25,13 +25,13 @@ class Config(object):
     ''' Keeps track of configuration. '''
 
     def __init__(self):
+        self.database = None
         self.db = None
         self.debug = False
         self.host = None
         self.migrations_dir = None
         self.password = None
         self.port = None
-        self.schema = None
         self.type = None
         self.user = None
 
@@ -56,7 +56,7 @@ pass_config = click.make_pass_decorator(Config, ensure=True)
               type=int,
               envvar='AGNOSTIC_PORT',
               metavar='<port>',
-              help='Database port #. If omitted, a default port will be ' \
+              help='Database port #. If omitted, a default port will be '
                    'selected based on <type>.')
 @click.option('-u', '--user',
               envvar='AGNOSTIC_USER',
@@ -69,13 +69,19 @@ pass_config = click.make_pass_decorator(Config, ensure=True)
               required=True,
               prompt='Database password',
               hide_input=True,
-              help='Database password. If omitted, the password must be ' \
+              help='Database password. If omitted, the password must be '
                    'entered on stdin.')
+@click.option('-d', '--database',
+              envvar='AGNOSTIC_DATABASE',
+              metavar='<database>',
+              required=True,
+              help='Name of database to target.')
 @click.option('-s', '--schema',
               envvar='AGNOSTIC_SCHEMA',
               metavar='<schema>',
-              required=True,
-              help='Name of database schema.')
+              required=False,
+              help='The default schema[s] to use when connecting to the'
+                   ' database. (WARNING: EXPERIMENTAL!!!)')
 @click.option('-m', '--migrations-dir',
               default='migrations',
               envvar='AGNOSTIC_MIGRATIONS_DIR',
@@ -83,12 +89,12 @@ pass_config = click.make_pass_decorator(Config, ensure=True)
               required=True,
               type=click.Path(exists=True),
               help='Path to migrations directory. (default: ./migrations)')
-@click.option('-d', '--debug',
+@click.option('-D', '--debug',
               is_flag=True,
               help='Display stack traces when exceptions occur.')
 @click.version_option()
 @pass_config
-def cli(config, type, host, port, user, password, schema,
+def cli(config, type, host, port, user, password, database, schema,
         migrations_dir, debug):
     '''
     Agnostic database migrations: upgrade schemas, keep your sanity.
@@ -97,6 +103,7 @@ def cli(config, type, host, port, user, password, schema,
     config.debug = debug
     config.host = host
     config.password = password
+    config.database = database
     config.schema = schema
     config.type = type
     config.user = user
@@ -122,6 +129,7 @@ def bootstrap(config, load_existing):
 
     db = _connect_db(config)
     cursor = db.cursor()
+    _set_schema(config, cursor)
 
     try:
         create_table_sql = _get_create_table_sql(config.type)
@@ -163,6 +171,7 @@ def drop(config, yes):
 
     db = _connect_db(config)
     cursor = db.cursor()
+    _set_schema(config, cursor)
 
     warning = 'WARNING: This will drop all migrations metadata!'
     click.echo(click.style(warning, fg='red'))
@@ -191,7 +200,6 @@ def list_(config):
     This shows migration metadata: migrations that have been applied (and the
     result of that application) and migrations that are pending.
 
-    \b
         * bootstrapped: a migration that was inserted during the bootstrap
           process.
         * failed: the migration did not apply cleanly; the migrations system
@@ -207,8 +215,9 @@ def list_(config):
 
     db = _connect_db(config)
     cursor = db.cursor()
+    _set_schema(config, cursor)
 
-    applied = _get_migration_records(cursor)
+    applied = _get_migration_records(config, cursor)
     applied_set = {a[0] for a in applied}
     pending = list()
 
@@ -280,8 +289,9 @@ def migrate(config, backup):
     db = _connect_db(config)
     db.autocommit = True
     cursor = db.cursor()
+    _set_schema(config, cursor)
 
-    if _any_failed_migrations(cursor):
+    if _any_failed_migrations(config, cursor):
         raise click.ClickException(
             click.style('Cannot run due to previously failed migrations.',
                         fg='red')
@@ -298,14 +308,14 @@ def migrate(config, backup):
     if backup:
         backup_file = tempfile.NamedTemporaryFile('w', delete=False)
         click.echo(
-            'Backing up schema "%s" to "%s".' %
-            (config.schema, backup_file.name)
+            'Backing up database "%s" to "%s".' %
+            (config.database, backup_file.name)
         )
         _wait_for(_backup(config, backup_file))
         backup_file.close()
 
-    click.echo('About to run %d migration%s in schema "%s":' %
-               (total, 's' if total > 1 else '', config.schema))
+    click.echo('About to run %d migration%s in database "%s":' %
+               (total, 's' if total > 1 else '', config.database))
 
     try:
         _run_migrations(config, cursor, pending)
@@ -318,7 +328,7 @@ def migrate(config, backup):
             click.secho('Will try to restore from backup…', fg='red')
 
             try:
-                _clear_schema(config)
+                _clear_database(config)
                 _wait_for(_restore(config, open(backup_file.name, 'r')))
                 click.secho('Restored from backup.', fg='green')
             except Exception as e2:
@@ -374,16 +384,16 @@ def test(config, yes, current, target):
     If you have a schema build system, this command is useful for verifying that
     your new migrations will produce the exact same schema as the build system.
 
-    Note: you may find it useful to set up a database/schema for testing
-    separate from the one that you use for development; this allows you to test
-    repeatedly without disrupting your development work.
+    Note: you may find it useful to set up a database for testing separate from
+    the one that you use for development; this allows you to test repeatedly
+    without disrupting your development work.
     '''
 
     # Create a temporary file for holding the migrated schema.
     temp_snapshot = tempfile.TemporaryFile('w+')
 
     # Make sure the user understands what is about to happen.
-    warning = 'WARNING: This will drop the schema "%s"!' % config.schema
+    warning = 'WARNING: This will drop the database "%s"!' % config.database
     click.echo(click.style(warning, fg='red'))
     confirmation = 'Are you 100% positive that you want to do this?'
 
@@ -391,26 +401,27 @@ def test(config, yes, current, target):
         raise click.Abort()
 
     # Load the current schema.
-    click.echo('Dropping schema "%s".' % config.schema)
-    _clear_schema(config)
+    click.echo('Dropping database "%s".' % config.database)
+    _clear_database(config)
 
-    click.echo('Loading current snapshot "%s".' % current.name)
-    _wait_for(_load_snapshot(config, current))
-
-    # Run migrations on current schema.
     db = _connect_db(config)
     db.autocommit = True
     cursor = db.cursor()
 
+    click.echo('Loading current snapshot "%s".' % current.name)
+    cursor.execute(current.read())
+
+    # Run migrations on current schema.
+    _set_schema(config, cursor)
     pending = _get_pending_migrations(config, cursor)
     total = len(pending)
-    click.echo('About to run %d migration%s in schema "%s":' %
-               (total, 's' if total > 1 else '', config.schema))
+    click.echo('About to run %d migration%s in database "%s":' %
+               (total, 's' if total > 1 else '', config.database))
     _run_migrations(config, cursor, pending)
     click.echo('Finished migrations.')
 
     # Dump the migrated schema to the temp file.
-    click.echo('Snapshotting the migrated schema.')
+    click.echo('Snapshotting the migrated database.')
     _wait_for(_make_snapshot(config, temp_snapshot))
     _migration_insert_sql(config, temp_snapshot)
 
@@ -451,19 +462,25 @@ cli.add_command(test)
 cli.add_command(migrate)
 
 
-def _any_failed_migrations(cursor):
+def _any_failed_migrations(config, cursor):
     ''' Return True if there are any failed migrations, false otherwise. '''
 
-    cursor.execute('''
-        SELECT COUNT(*) FROM "agnostic_migrations"
-        WHERE "status" LIKE '%s';
-    ''' % MIGRATION_STATUS_FAILED)
+    try:
+        cursor.execute('''
+            SELECT COUNT(*) FROM "agnostic_migrations"
+            WHERE "status" LIKE '%s';
+        ''' % MIGRATION_STATUS_FAILED)
+    except Exception as e:
+        if config.debug:
+            raise
+        msg = 'Failed to select from agnostic_migrations table: %s'
+        raise click.ClickException(msg % str(e)) from e
 
     return cursor.fetchone()[0] != 0
 
 
 def _backup(config, backup_file):
-    ''' Backup the schema to the given file handle. '''
+    ''' Backup the database to the given file handle. '''
 
     if config.type == 'postgres':
         env = {'PGPASSWORD': config.password}
@@ -473,8 +490,13 @@ def _backup(config, backup_file):
             '-h', config.host,
             '-p', str(config.port),
             '-U', config.user,
-            config.schema,
         ]
+
+        if config.schema is not None:
+            for schema in _get_schemas(config.schema, config.user):
+                command.extend(('-n', schema))
+
+        command.append(config.database)
 
         process = subprocess.Popen(
             command,
@@ -508,25 +530,26 @@ def _bootstrap_migration(type_, cursor, migration):
         raise ValueError('Database type "%s" not supported.' % type_)
 
 
-def _clear_schema(config):
-    ''' Drop all tables (and related objects) in the the current schema. '''
+def _clear_database(config):
+    ''' Drop all tables (and related objects) in the the current database. '''
 
     if config.type == 'postgres':
         db = _connect_db(config)
         db.autocommit = True
         cursor = db.cursor()
+        _set_schema(config, cursor)
 
         cursor.execute('''
-            SELECT tablename FROM pg_tables
+            SELECT schemaname, tablename FROM pg_tables
              WHERE tableowner = %s
                AND schemaname != 'pg_catalog'
                AND schemaname != 'information_schema'
         ''', (config.user,))
 
-        tables = ['"%s"' % row[0] for row in cursor.fetchall()]
+        tables = ['"%s"."%s"' % (row[0], row[1]) for row in cursor.fetchall()]
 
         if len(tables) > 0:
-            cursor.execute('DROP TABLE %s CASCADE' % ','.join(tables))
+            cursor.execute('DROP TABLE %s CASCADE' % ', '.join(tables))
 
         cursor.execute('''
             SELECT relname FROM pg_class
@@ -547,6 +570,11 @@ def _clear_schema(config):
 
         if len(types) > 0:
             cursor.execute('DROP TYPE %s CASCADE' % ','.join(types))
+
+        if config.schema is not None:
+            for schema in _get_schemas(config.schema, config.user):
+                if schema != 'public':
+                    cursor.execute('DROP SCHEMA IF EXISTS %s CASCADE' % schema)
 
         db.close()
     else:
@@ -569,7 +597,7 @@ def _connect_db(config):
                 port=config.port,
                 user=config.user,
                 password=config.password,
-                database=config.schema
+                database=config.database
             )
         except Exception as e:
             if config.debug:
@@ -606,15 +634,41 @@ def _get_default_port(type_):
         raise ValueError('Database type "%s" not supported.' % type_) from ke
 
 
-def _get_migration_records(cursor):
+def _get_migration_records(config, cursor):
     ''' Return records from the migration table. '''
 
-    cursor.execute('''
+    try:
+        cursor.execute('''
             SELECT * FROM "agnostic_migrations"
             ORDER BY "started_at", "name"
         ''')
+    except Exception as e:
+        if config.debug:
+            raise
+        msg = 'Failed to select from agnostic_migrations table: %s'
+        raise click.ClickException(msg % str(e)) from e
 
     return cursor.fetchall()
+
+
+def _get_schemas(schema, user):
+    '''
+    Split ``schema`` into list of schema names.
+
+    Small hack for pg_dump: it doesn't recognize $user as a namespace, so we
+    do that variable expansion here instead.
+    '''
+
+    return [s if '$user' not in s else user for s in schema.split(',')]
+
+
+def _get_schema_command(config):
+
+    if config.type == 'postgres':
+        return 'SET search_path TO {};\n'.format(config.schema)
+
+    else:
+        raise ValueError('Database type "%s" not supported.' % config.type)
 
 
 def _get_pending_migrations(config, cursor):
@@ -622,7 +676,7 @@ def _get_pending_migrations(config, cursor):
     Return a list of pending migrations in the order they should be applied.
     '''
 
-    applied_migrations = {m[0] for m in _get_migration_records(cursor)}
+    applied_migrations = {m[0] for m in _get_migration_records(config, cursor)}
     migration_files = _list_migration_files(config.migrations_dir)
 
     return [m for m in migration_files if m not in applied_migrations]
@@ -649,40 +703,6 @@ def _list_migration_files(migrations_dir, sub_path=''):
             yield from _list_migration_files(migrations_dir, new_sub_path)
 
 
-def _load_snapshot(config, snapshot):
-    '''
-    Load a schema snapshot.
-
-    Stderr should be connected to a pipe so that the caller can read error
-    messages, if any.
-    '''
-
-    if config.type == 'postgres':
-        env = {'PGPASSWORD': config.password}
-
-        command = [
-            'psql',
-            '-h', config.host,
-            '-p', str(config.port),
-            '-U', config.user,
-            '-v', 'ON_ERROR_STOP=1', # Fail fast if an error occurs.
-            config.schema,
-        ]
-
-        process = subprocess.Popen(
-            command,
-            env=env,
-            stdin=snapshot,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.PIPE
-        )
-
-        return process
-
-    else:
-        raise ValueError('Database type "%s" not supported.' % config.type)
-
-
 def _make_snapshot(config, outfile):
     '''
     Write a snapshot to ``outfile``.
@@ -707,8 +727,14 @@ def _make_snapshot(config, outfile):
             '-x', # don't dump grant/revoke statements
             '-O', # don't dump ownership commands
             '--no-tablespaces',
-            config.schema,
         ]
+
+        if config.schema is not None:
+            for schema in _get_schemas(config.schema, config.user):
+                command.extend(('-n', schema))
+
+
+        command.append(config.database)
 
         process = subprocess.Popen(
             command,
@@ -728,9 +754,10 @@ def _migration_insert_sql(config, outfile):
 
     db = _connect_db(config)
     cursor = db.cursor()
+    _set_schema(config, cursor)
     insert = "INSERT INTO agnostic_migrations VALUES ('{}', '{}', NOW(), NOW());\n"
 
-    for migration in _get_migration_records(cursor):
+    for migration in _get_migration_records(config, cursor):
         outfile.write(insert.format(migration[0], MIGRATION_STATUS_SUCCEEDED))
 
 
@@ -746,7 +773,7 @@ def _restore(config, backup_file):
             '-p', str(config.port),
             '-U', config.user,
             '-v', 'ON_ERROR_STOP=1', # Fail fast if an error occurs.
-            config.schema,
+            config.database,
         ]
 
         process = subprocess.Popen(
@@ -779,7 +806,8 @@ def _run_migrations(config, cursor, migrations):
             VALUES (%(name)s, %(status)s, NOW())
         ''', {'name': migration, 'status': MIGRATION_STATUS_FAILED})
 
-        _wait_for(_run_migration_file(config, open(mig2file(migration), 'r')))
+        with open(mig2file(migration), 'r') as migration_file:
+            cursor.execute(migration_file.read())
 
         cursor.execute('''
             UPDATE "agnostic_migrations"
@@ -788,33 +816,21 @@ def _run_migrations(config, cursor, migrations):
         ''', {'name': migration, 'status': MIGRATION_STATUS_SUCCEEDED})
 
 
-def _run_migration_file(config, migration_file):
-    ''' Run a single migration file and return a process. '''
+def _set_schema(config, cursor):
+    '''
+    Set the schema for the given cursor.
 
-    if config.type == 'postgres':
-        env = {'PGPASSWORD': config.password}
+    Do nothing if no schema was specified.
+    '''
 
-        command = [
-            'psql',
-            '-h', config.host,
-            '-p', str(config.port),
-            '-U', config.user,
-            '-v', 'ON_ERROR_STOP=1', # Fail fast if an error occurs.
-            config.schema,
-        ]
-
-        process = subprocess.Popen(
-            command,
-            env=env,
-            stdin=migration_file,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.PIPE
-        )
-
-        return process
-
-    else:
-        raise ValueError('Database type "%s" not supported.' % config.type)
+    if config.schema is not None:
+        try:
+            cursor.execute(_get_schema_command(config))
+        except Exception as e:
+            if config.debug:
+                raise
+            msg = 'Failed to set schema: %s'
+            raise click.ClickException(msg % str(e)) from e
 
 
 def _wait_for(process):

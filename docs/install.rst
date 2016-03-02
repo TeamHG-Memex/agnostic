@@ -6,7 +6,7 @@ Install From PyPI
 
 The easiest way to install Agnostic is from PyPI.
 
-.. notice::
+.. note::
 
     Agnostic is Python 3 only, so make sure that you are using ``pip3``, not
     ``pip2``. Don't worry: you can use Agnostic with Python 2 projects; only
@@ -25,7 +25,7 @@ Memex/agnostic>`_ or `download a ZIP file <https://github.com/TeamHG-
 Memex/agnostic/archive/master.zip>`_. Once you have it cloned or unzipped, just
 run the ``setup.py``.
 
-.. notice::
+.. note::
 
     Make sure to use Python 3, not Python 2. See notice in previous section.
 
