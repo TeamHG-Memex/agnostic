@@ -1,6 +1,12 @@
 Agnostic Database Migrations
 ============================
 
+.. image:: https://travis-ci.org/TeamHG-Memex/agnostic.svg?branch=master
+    :target: https://travis-ci.org/TeamHG-Memex/agnostic
+
+.. image:: https://coveralls.io/repos/github/TeamHG-Memex/agnostic/badge.svg?branch=master
+    :target: https://coveralls.io/github/TeamHG-Memex/agnostic?branch=master
+
 Overview
 --------
 
