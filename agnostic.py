@@ -1,3 +1,4 @@
+from contextlib import closing
 from copy import copy
 from datetime import datetime
 import difflib
@@ -127,30 +128,28 @@ def bootstrap(config, load_existing):
     and also (optionally) loads pre-existing migration metadata into it.
     '''
 
-    db = _connect_db(config)
-    cursor = db.cursor()
-    _set_schema(config, cursor)
+    with closing(_connect_db(config)) as db, closing(db.cursor()) as cursor:
+        _set_schema(config, cursor)
 
-    try:
-        create_table_sql = _get_create_table_sql(config.type)
-        cursor.execute(create_table_sql)
-    except Exception as e:
-        if config.debug:
-            raise
-        msg = 'Failed to create migration table: %s'
-        raise click.ClickException(msg % str(e)) from e
+        try:
+            create_table_sql = _get_create_table_sql(config.type)
+            cursor.execute(create_table_sql)
+        except Exception as e:
+            if config.debug:
+                raise
+            msg = 'Failed to create migration table: %s'
+            raise click.ClickException(msg % str(e)) from e
 
-    if load_existing:
-        for migration in _list_migration_files(config.migrations_dir):
-            try:
-                _bootstrap_migration(config.type, cursor, migration)
-            except Exception as e:
-                if config.debug:
-                    raise
-                msg = 'Failed to load existing migrations: '
-                raise click.ClickException(msg + str(e)) from e
+        if load_existing:
+            for migration in _list_migration_files(config.migrations_dir):
+                try:
+                    _bootstrap_migration(config.type, cursor, migration)
+                except Exception as e:
+                    if config.debug:
+                        raise
+                    msg = 'Failed to load existing migrations: '
+                    raise click.ClickException(msg + str(e)) from e
 
-    db.commit()
     click.secho('Migration table created.', fg='green')
 
 
@@ -169,27 +168,25 @@ def drop(config, yes):
     applied. This is typically only useful when debugging.
     '''
 
-    db = _connect_db(config)
-    cursor = db.cursor()
-    _set_schema(config, cursor)
+    with closing(_connect_db(config)) as db, closing(db.cursor()) as cursor:
+        _set_schema(config, cursor)
 
-    warning = 'WARNING: This will drop all migrations metadata!'
-    click.echo(click.style(warning, fg='red'))
-    confirmation = 'Are you 100% positive that you want to do this?'
+        warning = 'WARNING: This will drop all migrations metadata!'
+        click.echo(click.style(warning, fg='red'))
+        confirmation = 'Are you 100% positive that you want to do this?'
 
-    if not (yes or click.confirm(confirmation)):
-        raise click.Abort()
+        if not (yes or click.confirm(confirmation)):
+            raise click.Abort()
 
-    try:
-        cursor.execute('DROP TABLE "agnostic_migrations"')
-        db.commit()
-        click.secho('Migration table dropped.', fg='green')
-    except Exception as e:
-        if config.debug:
-            raise
-        msg = 'Failed to drop migration table: '
-        raise click.ClickException(msg + str(e)) from e
+        try:
+            cursor.execute('DROP TABLE agnostic_migrations')
+        except Exception as e:
+            if config.debug:
+                raise
+            msg = 'Failed to drop migration table: '
+            raise click.ClickException(msg + str(e)) from e
 
+    click.secho('Migration table dropped.', fg='green')
 
 @click.command('list')
 @pass_config
@@ -213,66 +210,64 @@ def list_(config):
     they would be applied.
     '''
 
-    db = _connect_db(config)
-    cursor = db.cursor()
-    _set_schema(config, cursor)
+    with closing(_connect_db(config)) as db, closing(db.cursor()) as cursor:
+        _set_schema(config, cursor)
 
-    applied = _get_migration_records(config, cursor)
-    applied_set = {a[0] for a in applied}
-    pending = list()
+        applied = _get_migration_records(config, cursor)
+        applied_set = {a[0] for a in applied}
+        pending = list()
 
-    for pm in _get_pending_migrations(config, cursor):
-        if pm not in applied_set:
-            pending.append((pm, MIGRATION_STATUS_PENDING, None, None))
+        for pm in _get_pending_migrations(config, cursor):
+            if pm not in applied_set:
+                pending.append((pm, MIGRATION_STATUS_PENDING, None, None))
 
-    migrations = applied + pending
+        migrations = applied + pending
 
-    try:
-        if len(migrations) == 0:
-            raise ValueError('no migrations exist')
+        try:
+            if len(migrations) == 0:
+                raise ValueError('no migrations exist')
 
-        column_names = 'Name', 'Status', 'Started At', 'Completed At'
-        max_name = len(max(migrations, key=lambda i: len(i[0]))[0])
-        max_status = len(max(migrations, key=lambda i: len(i[1]))[1])
-        row = '{:<%d} | {:%d} | {:<19} | {:<19}' % (max_name, max_status)
+            column_names = 'Name', 'Status', 'Started At', 'Completed At'
+            max_name = len(max(migrations, key=lambda i: len(i[0]))[0])
+            max_status = len(max(migrations, key=lambda i: len(i[1]))[1])
+            row = '{:<%d} | {:%d} | {:<19} | {:<19}' % (max_name, max_status)
 
-        click.echo(row.format(*column_names))
-        click.echo(
-            '-' * (max_name + 1) + '+' +
-            '-' * (max_status + 2) + '+' +
-            '-' * 21 + '+' +
-            '-' * 20
-        )
+            click.echo(row.format(*column_names))
+            click.echo(
+                '-' * (max_name + 1) + '+' +
+                '-' * (max_status + 2) + '+' +
+                '-' * 21 + '+' +
+                '-' * 20
+            )
 
-        for name, status, started_at, completed_at in migrations:
-            if started_at is None:
-                started_at = 'N/A'
-            elif isinstance(started_at, datetime):
-                started_at = started_at.strftime('%Y-%m-%d %H:%I:%S')
+            for name, status, started_at, completed_at in migrations:
+                if started_at is None:
+                    started_at = 'N/A'
+                elif isinstance(started_at, datetime):
+                    started_at = started_at.strftime('%Y-%m-%d %H:%I:%S')
 
-            if completed_at is None:
-                completed_at = 'N/A'
-            elif isinstance(completed_at, datetime):
-                completed_at = completed_at.strftime('%Y-%m-%d %H:%I:%S')
+                if completed_at is None:
+                    completed_at = 'N/A'
+                elif isinstance(completed_at, datetime):
+                    completed_at = completed_at.strftime('%Y-%m-%d %H:%I:%S')
 
-            msg = row.format(name, status, started_at, completed_at)
+                msg = row.format(name, status, started_at, completed_at)
 
-            if status == MIGRATION_STATUS_BOOTSTRAPPED:
-                click.echo(msg)
-            elif status == MIGRATION_STATUS_FAILED:
-                click.secho(msg, fg='red')
-            elif status == MIGRATION_STATUS_PENDING:
-                click.echo(msg)
-            elif status == MIGRATION_STATUS_SUCCEEDED:
-                click.secho(msg, fg='green')
-            else:
-                raise ValueError('Invalid migration status: "{}".'
-                                 .format(status))
-    except Exception as e:
-        if config.debug:
-            raise
-        raise click.ClickException('Cannot list migrations: ' + str(e)) from e
-
+                if status == MIGRATION_STATUS_BOOTSTRAPPED:
+                    click.echo(msg)
+                elif status == MIGRATION_STATUS_FAILED:
+                    click.secho(msg, fg='red')
+                elif status == MIGRATION_STATUS_PENDING:
+                    click.echo(msg)
+                elif status == MIGRATION_STATUS_SUCCEEDED:
+                    click.secho(msg, fg='green')
+                else:
+                    raise ValueError('Invalid migration status: "{}".'
+                                     .format(status))
+        except Exception as e:
+            if config.debug:
+                raise
+            raise click.ClickException('Cannot list migrations: ' + str(e)) from e
 
 @click.command()
 @click.option('--backup/--no-backup',
@@ -286,65 +281,63 @@ def migrate(config, backup):
     Run pending migrations.
     '''
 
-    db = _connect_db(config)
-    db.autocommit = True
-    cursor = db.cursor()
-    _set_schema(config, cursor)
+    with closing(_connect_db(config)) as db, closing(db.cursor()) as cursor:
+        _set_schema(config, cursor)
 
-    if _any_failed_migrations(config, cursor):
-        raise click.ClickException(
-            click.style('Cannot run due to previously failed migrations.',
-                        fg='red')
-        )
+        if _any_failed_migrations(config, cursor):
+            raise click.ClickException(
+                click.style('Cannot run due to previously failed migrations.',
+                            fg='red')
+            )
 
-    pending = _get_pending_migrations(config, cursor)
-    total = len(pending)
+        pending = _get_pending_migrations(config, cursor)
+        total = len(pending)
 
-    if total == 0:
-        raise click.ClickException(
-            click.style('There are no pending migrations.', fg='green')
-        )
-
-    if backup:
-        backup_file = tempfile.NamedTemporaryFile('w', delete=False)
-        click.echo(
-            'Backing up database "%s" to "%s".' %
-            (config.database, backup_file.name)
-        )
-        _wait_for(_backup(config, backup_file))
-        backup_file.close()
-
-    click.echo('About to run %d migration%s in database "%s":' %
-               (total, 's' if total > 1 else '', config.database))
-
-    try:
-        _run_migrations(config, cursor, pending)
-    except Exception as e:
-        click.secho('Migration failed because:', fg='red')
-        click.echo(str(e))
-        db.close()
+        if total == 0:
+            raise click.ClickException(
+                click.style('There are no pending migrations.', fg='green')
+            )
 
         if backup:
-            click.secho('Will try to restore from backup…', fg='red')
+            backup_file = tempfile.NamedTemporaryFile('w', delete=False)
+            click.echo(
+                'Backing up database "%s" to "%s".' %
+                (config.database, backup_file.name)
+            )
+            _wait_for(_backup(config, backup_file))
+            backup_file.close()
 
-            try:
-                _clear_database(config)
-                _wait_for(_restore(config, open(backup_file.name, 'r')))
-                click.secho('Restored from backup.', fg='green')
-            except Exception as e2:
-                msg = 'Could not restore from backup: %s' % str(e2)
-                click.secho(msg, fg='red', bold=True)
+        click.echo('About to run %d migration%s in database "%s":' %
+                   (total, 's' if total > 1 else '', config.database))
 
-        if config.debug:
-            raise
+        try:
+            _run_migrations(config, cursor, pending)
+        except Exception as e:
+            click.secho('Migration failed because:', fg='red')
+            click.echo(str(e))
+            db.close()
 
-        raise click.Abort() from e
+            if backup:
+                click.secho('Will try to restore from backup…', fg='red')
 
-    click.secho('Migrations completed successfully.', fg='green')
+                try:
+                    _clear_database(config)
+                    _wait_for(_restore(config, open(backup_file.name, 'r')))
+                    click.secho('Restored from backup.', fg='green')
+                except Exception as e2:
+                    msg = 'Could not restore from backup: %s' % str(e2)
+                    click.secho(msg, fg='red', bold=True)
 
-    if backup:
-        click.echo('Removing backup "%s".' % backup_file.name)
-        os.unlink(backup_file.name)
+            if config.debug:
+                raise
+
+            raise click.Abort() from e
+
+        click.secho('Migrations completed successfully.', fg='green')
+
+        if backup:
+            click.echo('Removing backup "%s".' % backup_file.name)
+            os.unlink(backup_file.name)
 
 
 @click.command()
@@ -404,21 +397,18 @@ def test(config, yes, current, target):
     click.echo('Dropping database "%s".' % config.database)
     _clear_database(config)
 
-    db = _connect_db(config)
-    db.autocommit = True
-    cursor = db.cursor()
+    with closing(_connect_db(config)) as db, closing(db.cursor()) as cursor:
+        click.echo('Loading current snapshot "%s".' % current.name)
+        cursor.execute(current.read())
 
-    click.echo('Loading current snapshot "%s".' % current.name)
-    cursor.execute(current.read())
-
-    # Run migrations on current schema.
-    _set_schema(config, cursor)
-    pending = _get_pending_migrations(config, cursor)
-    total = len(pending)
-    click.echo('About to run %d migration%s in database "%s":' %
-               (total, 's' if total > 1 else '', config.database))
-    _run_migrations(config, cursor, pending)
-    click.echo('Finished migrations.')
+        # Run migrations on current schema.
+        _set_schema(config, cursor)
+        pending = _get_pending_migrations(config, cursor)
+        total = len(pending)
+        click.echo('About to run %d migration%s in database "%s":' %
+                   (total, 's' if total > 1 else '', config.database))
+        _run_migrations(config, cursor, pending)
+        click.echo('Finished migrations.')
 
     # Dump the migrated schema to the temp file.
     click.echo('Snapshotting the migrated database.')
@@ -452,6 +442,7 @@ def test(config, yes, current, target):
         )
         click.echo(''.join(diff))
         raise click.ClickException('Test failed. See diff output above.')
+
 
 
 cli.add_command(bootstrap)
@@ -534,49 +525,45 @@ def _clear_database(config):
     ''' Drop all tables (and related objects) in the the current database. '''
 
     if config.type == 'postgres':
-        db = _connect_db(config)
-        db.autocommit = True
-        cursor = db.cursor()
-        _set_schema(config, cursor)
+        with closing(_connect_db(config)) as db, closing(db.cursor()) as cursor:
+            _set_schema(config, cursor)
 
-        cursor.execute('''
-            SELECT schemaname, tablename FROM pg_tables
-             WHERE tableowner = %s
-               AND schemaname != 'pg_catalog'
-               AND schemaname != 'information_schema'
-        ''', (config.user,))
+            cursor.execute('''
+                SELECT schemaname, tablename FROM pg_tables
+                 WHERE tableowner = %s
+                   AND schemaname != 'pg_catalog'
+                   AND schemaname != 'information_schema'
+            ''', (config.user,))
 
-        tables = ['"%s"."%s"' % (row[0], row[1]) for row in cursor.fetchall()]
+            tables = ['"%s"."%s"' % (row[0], row[1]) for row in cursor.fetchall()]
 
-        if len(tables) > 0:
-            cursor.execute('DROP TABLE %s CASCADE' % ', '.join(tables))
+            if len(tables) > 0:
+                cursor.execute('DROP TABLE %s CASCADE' % ', '.join(tables))
 
-        cursor.execute('''
-            SELECT relname FROM pg_class
-             WHERE relkind = 'S'
-        ''')
+            cursor.execute('''
+                SELECT relname FROM pg_class
+                 WHERE relkind = 'S'
+            ''')
 
-        sequences = ['"%s"' % row[0] for row in cursor.fetchall()]
+            sequences = ['"%s"' % row[0] for row in cursor.fetchall()]
 
-        if len(sequences) > 0:
-            cursor.execute('DROP SEQUENCE %s CASCADE' % ','.join(sequences))
+            if len(sequences) > 0:
+                cursor.execute('DROP SEQUENCE %s CASCADE' % ','.join(sequences))
 
-        cursor.execute('''
-            SELECT typname FROM pg_type
-             WHERE typtype = 'e'
-        ''')
+            cursor.execute('''
+                SELECT typname FROM pg_type
+                 WHERE typtype = 'e'
+            ''')
 
-        types = ['"%s"' % row[0] for row in cursor.fetchall()]
+            types = ['"%s"' % row[0] for row in cursor.fetchall()]
 
-        if len(types) > 0:
-            cursor.execute('DROP TYPE %s CASCADE' % ','.join(types))
+            if len(types) > 0:
+                cursor.execute('DROP TYPE %s CASCADE' % ','.join(types))
 
-        if config.schema is not None:
-            for schema in _get_schemas(config.schema, config.user):
-                if schema != 'public':
-                    cursor.execute('DROP SCHEMA IF EXISTS %s CASCADE' % schema)
-
-        db.close()
+            if config.schema is not None:
+                for schema in _get_schemas(config.schema, config.user):
+                    if schema != 'public':
+                        cursor.execute('DROP SCHEMA IF EXISTS %s CASCADE' % schema)
     else:
         raise ValueError('Database type "%s" not supported.' % config.type)
 
@@ -592,7 +579,7 @@ def _connect_db(config):
             raise click.ClickException(msg) from e
 
         try:
-            return psycopg2.connect(
+            db = psycopg2.connect(
                 host=config.host,
                 port=config.port,
                 user=config.user,
@@ -607,6 +594,9 @@ def _connect_db(config):
                 raise click.ClickException(err % str(e)) from e
     else:
         raise ValueError('Database type "%s" not supported.' % config.type)
+
+    db.autocommit = True
+    return db
 
 
 def _get_create_table_sql(type_):
@@ -752,13 +742,14 @@ def _make_snapshot(config, outfile):
 def _migration_insert_sql(config, outfile):
     ''' Write SQL for inserting migration metadata to `outfile`. '''
 
-    db = _connect_db(config)
-    cursor = db.cursor()
-    _set_schema(config, cursor)
-    insert = "INSERT INTO agnostic_migrations VALUES ('{}', '{}', NOW(), NOW());\n"
+    with closing(_connect_db(config)) as db, closing(db.cursor()) as cursor:
+        _set_schema(config, cursor)
 
-    for migration in _get_migration_records(config, cursor):
-        outfile.write(insert.format(migration[0], MIGRATION_STATUS_SUCCEEDED))
+        insert = "INSERT INTO agnostic_migrations VALUES " \
+                 " ('{}', '{}', NOW(), NOW());\n"
+
+        for migration in _get_migration_records(config, cursor):
+            outfile.write(insert.format(migration[0], MIGRATION_STATUS_SUCCEEDED))
 
 
 def _restore(config, backup_file):

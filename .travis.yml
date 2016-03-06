@@ -1,0 +1,10 @@
+language: python
+python: 3.4
+services:
+  - postgresql
+install:
+  - pip install --user Click psycopg2
+env:
+  - LC_ALL=C.UTF-8 POSTGRES_USER=postgres POSTGRES_PASSWORD=
+script:
+  - nosetests -v test/
