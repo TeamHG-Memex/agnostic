@@ -10,7 +10,7 @@ MigrationStatus = Enum(
 
 
 MIGRATION_TABLE_SQL = '''
-    CREATE TABLE "agnostic_migrations" (
+    CREATE TABLE agnostic_migrations (
         name VARCHAR(255) PRIMARY KEY,
         status VARCHAR(255),
         started_at TIMESTAMP,
@@ -73,7 +73,21 @@ def create_backend(db_type, host, port, user, password, database, schema):
     Return a new backend instance.
     '''
 
-    if db_type == 'postgres':
+    if db_type == 'mysql':
+        if schema is not None:
+            raise RuntimeError('MySQL does not support schemas.')
+
+        try:
+            from agnostic.mysql import MysqlBackend
+        except ImportError as ie:
+            if ie.name == 'pymysql':
+                msg = 'The `pymysql` module is required for MySQL.'
+                raise click.ClickException(msg)
+            else:
+                raise
+        return MysqlBackend(host, port, user, password, database, schema)
+
+    elif db_type == 'postgres':
         try:
             from agnostic.postgres import PostgresBackend
         except ImportError as ie:
@@ -83,6 +97,7 @@ def create_backend(db_type, host, port, user, password, database, schema):
             else:
                 raise
         return PostgresBackend(host, port, user, password, database, schema)
+
     else:
         raise ValueError('Invalid database type: "{}"'.format(db_type))
 
@@ -153,11 +168,7 @@ class AbstractBackend(metaclass=ABCMeta):
         Insert a row into the migration table with the 'bootstrapped' status.
         '''
 
-        sql = '''
-            INSERT INTO "agnostic_migrations"
-                 VALUES (%s, %s, NOW(), NOW())
-        '''
-
+        sql = 'INSERT INTO agnostic_migrations VALUES (%s, %s, NOW(), NOW())'
         cursor.execute(sql, (migration_name, MigrationStatus.bootstrapped.name))
 
     def create_migrations_table(self, cursor):
@@ -174,8 +185,9 @@ class AbstractBackend(metaclass=ABCMeta):
         ''' Get migrations metadata from the database. '''
 
         cursor.execute('''
-            SELECT * FROM "agnostic_migrations"
-            ORDER BY "started_at", "name"
+            SELECT *
+              FROM agnostic_migrations
+          ORDER BY started_at, name
         ''')
 
         return [Migration(*row) for row in cursor.fetchall()]
@@ -186,8 +198,8 @@ class AbstractBackend(metaclass=ABCMeta):
         '''
 
         query = '''
-            SELECT COUNT(*) FROM "agnostic_migrations"
-            WHERE "status" LIKE %s;
+            SELECT COUNT(*) FROM agnostic_migrations
+            WHERE status LIKE %s;
         '''
 
         cursor.execute(query, (MigrationStatus.failed.name,))
@@ -204,7 +216,7 @@ class AbstractBackend(metaclass=ABCMeta):
         '''
 
         sql = '''
-            INSERT INTO "agnostic_migrations" ("name", "status", "started_at")
+            INSERT INTO agnostic_migrations (name, status, started_at)
             VALUES (%(name)s, %(status)s, NOW())
         '''
 
@@ -222,9 +234,9 @@ class AbstractBackend(metaclass=ABCMeta):
         '''
 
         sql = '''
-            UPDATE "agnostic_migrations"
-            SET "status" = %(status)s, "completed_at" = NOW()
-            WHERE "name" = %(name)s
+            UPDATE agnostic_migrations
+               SET status = %(status)s, completed_at = NOW()
+             WHERE name = %(name)s
         '''
 
         args = {

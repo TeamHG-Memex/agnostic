@@ -23,6 +23,10 @@ setup(
     install_requires=[
         'Click',
     ],
+    extras_require = {
+        'mysql': ['PyMySQL'],
+        'postgres': ['psycopg2'],
+    },
     entry_points='''
         [console_scripts]
         agnostic=agnostic.cli:main

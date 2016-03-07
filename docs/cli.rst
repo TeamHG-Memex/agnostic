@@ -44,9 +44,9 @@ subcommands:
 The **options** have the following meanings.
 
 type
-    **(Required)** The type of database that Agnostic is connecting to. The only
-    supported type in this alpha release is ``postgres``. May be specified as
-    ``AGNOSTIC_TYPE`` environment variable instead.
+    **(Required)** The type of database that Agnostic is connecting to, either
+    ``mysql`` or ``postgres``. May be specified as ``AGNOSTIC_TYPE`` environment
+    variable instead.
 host
     **(Optional)** Hostname or IP address of database server. It defaults to
     ``localhost``. Agnostic uses TCP/IP connections only, never file socket
@@ -72,7 +72,7 @@ database
 schema
     **(Optional)** The schema to run all commands inside of. For Postgres, this
     is equivalent to ``SET search_path TO ...``, and a comma-separated list of
-    schemas is allowed. MySQL and SQLite do not support schemas.
+    schemas is allowed. MySQL does not support schemas.
 migrations-dir
     **(Optional)** Path to the directory that contains migration scripts. If
     not specified, it defaults to ``migrations`` in the current working

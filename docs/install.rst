@@ -12,9 +12,16 @@ The easiest way to install Agnostic is from PyPI.
     ``pip2``. Don't worry: you can use Agnostic with Python 2 projects; only
     Agnostic itself needs to run in the Python 3 interpreter.
 
+Agnostic requires a specific driver for each database you want to use it with,
+so *choose one of the following forms* to install Agnostic with the correct
+drivers.
+
 .. code:: bash
 
-    ~ $ pip install agnostic
+    ~ $ pip install agnostic[mysql]
+    ~ $ pip install agnostic[postgres]
+
+Agnostic also requires some database command line tools for making snapshots and backups. See `Dependencies`_ below.
 
 Install From Source
 -------------------
@@ -35,21 +42,25 @@ run the ``setup.py``.
     ~/agnostic $ python setup.py install
 
 Dependencies
-----------------
+------------
 
-Agnostic expects some database drivers and tools to be present in order to
-connect to and execute queries against your database.
+Agnostic expects some database drivers and tools to be present in order to make
+snapshots and backups. You only need to install dependencies for the database
+that you're using.
+
+mysql
+    Requires the ``PyMySQL`` Python driver and both the ``mysql`` and
+    ``mysqldump`` executables.
 
 postgres
     Requires the ``psycopg2`` Python driver and both the ``psql`` and
     ``pg_dump`` executables.
 
-*In this alpha release, "postgres" is the only supported database.*
+Verification
+------------
 
-Testing
--------
-
-You can test if Agnostic is installed correctly by running it.
+You can verify that Agnostic is installed correctly by running it. (Your version
+number may not match the version shown here. That's OK.)
 
 .. code:: bash
 

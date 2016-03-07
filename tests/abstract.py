@@ -2,15 +2,11 @@ from abc import ABCMeta, abstractmethod
 from contextlib import contextmanager
 from datetime import datetime, timedelta
 import os
-import re
 import shutil
 import tempfile
-import traceback
 import unittest
 
-from click import ClickException
 from click.testing import CliRunner
-import psycopg2
 
 import agnostic
 import agnostic.cli
@@ -62,6 +58,7 @@ class AbstractDatabaseTest(metaclass=ABCMeta):
         If ``fixture_name`` is None or ``migration_names`` is None/empty, then
         an empty directory is created.
         '''
+
         tempdir = tempfile.mkdtemp()
 
         if fixture_name is not None and \
@@ -71,7 +68,7 @@ class AbstractDatabaseTest(metaclass=ABCMeta):
             base_path = os.path.join(
                 os.path.dirname(__file__),
                 'fixtures',
-                'migrations_{}'.format(fixture_name)
+                '{}_{}'.format(fixture_name, self.db_type)
             )
 
             for migration_name in migration_names:
@@ -111,6 +108,7 @@ class AbstractDatabaseTest(metaclass=ABCMeta):
         try:
             db = self.connect_db(user, password, database)
         except Exception as e:
+            raise
             msg = 'Cannot connect to {}: {}'
             raise unittest.SkipTest(msg.format(self.db_type, e))
 
@@ -127,7 +125,7 @@ class AbstractDatabaseTest(metaclass=ABCMeta):
         migration_path = os.path.join(
             os.path.dirname(__file__),
             'fixtures',
-            'migrations_{}'.format(fixture_name),
+            '{}_{}'.format(fixture_name, self.db_type),
             '{}.sql'.format(migration_name)
         )
 
@@ -219,18 +217,23 @@ class AbstractDatabaseTest(metaclass=ABCMeta):
             cursor.execute('CREATE DATABASE {}'.format(self._test_db))
 
     @abstractmethod
-    def table_columns(self, cursor, table_name):
+    def table_columns(self, cursor, database, table_name):
         ''' Return a list of columns in the specified table. '''
 
     @abstractmethod
-    def table_exists(self, cursor, table_name):
+    def table_exists(self, cursor, database, table_name):
         ''' Return true if the specified table exists. '''
 
     def test_bootstrap_creates_migration_table(self):
         ''' The "bootstrap" CLI command creates a migrations table. '''
 
         with self.get_db(self._test_db) as (db, cursor):
-            self.assertFalse(self.table_exists(cursor, 'agnostic_migrations'))
+            table_exists = self.table_exists(
+                cursor,
+                self._test_db,
+                'agnostic_migrations'
+            )
+            self.assertFalse(table_exists)
 
         migrations_dir = self.create_migrations_dir('employee', [
             '1_create_employee_table',
@@ -241,7 +244,12 @@ class AbstractDatabaseTest(metaclass=ABCMeta):
         self.assertEqual(0, result.exit_code)
 
         with self.get_db(self._test_db) as (db, cursor):
-            self.assertTrue(self.table_exists(cursor, 'agnostic_migrations'))
+            table_exists = self.table_exists(
+                cursor,
+                self._test_db,
+                'agnostic_migrations'
+            )
+            self.assertTrue(table_exists)
 
             # The table should contain a row for the bootstrapped migration.
             cursor.execute(
@@ -279,7 +287,12 @@ class AbstractDatabaseTest(metaclass=ABCMeta):
         self.assertEqual(0, result.exit_code)
 
         with self.get_db(self._test_db) as (db, cursor):
-            self.assertFalse(self.table_exists(cursor, 'agnostic_migrations'))
+            table_exists = self.table_exists(
+                cursor,
+                self._test_db,
+                'agnostic_migrations'
+            )
+            self.assertFalse(table_exists)
 
     def test_drop_error_if_no_migration_table(self):
         '''
@@ -341,7 +354,7 @@ class AbstractDatabaseTest(metaclass=ABCMeta):
         with self.get_db(self._test_db) as (db, cursor):
             # The migration should change the last column from "home" to
             # "phone_home" and add a column called "phone_cell".
-            columns = self.table_columns(cursor, 'employee')
+            columns = self.table_columns(cursor, self._test_db, 'employee')
             self.assertEqual(5, len(columns))
             self.assertEqual(columns[3], 'phone_home')
             self.assertEqual(columns[4], 'phone_cell')

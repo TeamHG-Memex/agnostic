@@ -9,41 +9,48 @@ import unittest
 
 from click import ClickException
 from click.testing import CliRunner
-import psycopg2
+import pymysql
 
 import agnostic
 import agnostic.cli
 from tests.abstract import AbstractDatabaseTest
 
 
-class TestPostgreSql(AbstractDatabaseTest, unittest.TestCase):
+class TestMysql(AbstractDatabaseTest, unittest.TestCase):
     '''
-    Integration tests for Agnostic Database Migrations & PostgreSQL.
+    Integration tests for Agnostic Database Migrations & MySQL.
+
+    Note that MySQL uses "schema" and "database" interchangeably, which leads
+    to some unintuitive code in this test suite.
     '''
 
     @property
     def db_type(self):
         ''' The database type as a string. '''
-        return 'postgres'
+        return 'mysql'
 
     @property
     def default_db(self):
         ''' The database to connect when dropping/creating a test database. '''
-        return 'postgres'
+        return 'mysql'
 
     def connect_db(self, user, password, database):
         ''' Return a connection to the specified database. '''
 
-        db = psycopg2.connect(
-            host=os.getenv('POSTGRES_HOST', 'localhost'),
-            port=os.getenv('POSTGRES_PORT', None),
-            user=user,
-            password=password,
-            database=database
-        )
+        connect_args = {
+            'host': os.getenv('MYSQL_HOST', 'localhost'),
+            'user': user,
+            'password': password,
+            'database': database,
+            'autocommit': True
+        }
 
-        db.autocommit = True
-        return db
+        port = os.getenv('MYSQL_PORT', None)
+
+        if port is not None:
+            connect_args['port'] = int(port)
+
+        return pymysql.connect(**connect_args)
 
     def table_columns(self, cursor, database, table_name):
         ''' Return a list of columns in the specified table. '''
@@ -51,11 +58,11 @@ class TestPostgreSql(AbstractDatabaseTest, unittest.TestCase):
         sql = '''
             SELECT column_name
               FROM information_schema.columns
-             WHERE table_name = %s
+             WHERE table_schema = %s AND table_name = %s
           ORDER BY ordinal_position
         '''
 
-        cursor.execute(sql, (table_name,))
+        cursor.execute(sql, (database, table_name))
         return [row[0] for row in cursor.fetchall()]
 
     def table_exists(self, cursor, database, table_name):
@@ -64,8 +71,8 @@ class TestPostgreSql(AbstractDatabaseTest, unittest.TestCase):
         table_query = '''
             SELECT COUNT(*)
               FROM information_schema.tables
-             WHERE table_name = %s
+             WHERE table_schema = %s AND table_name = %s
         '''
 
-        cursor.execute(table_query, (table_name,))
+        cursor.execute(table_query, (database, table_name))
         return cursor.fetchone()[0] == 1

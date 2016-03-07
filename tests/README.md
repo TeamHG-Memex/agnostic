@@ -52,7 +52,8 @@ from the host system. In order to run the test suite, you need to export
 environment variables that tell the test suite what credentials to use when
 accessing the various databases.
 
-    export LC_ALL=C.UTF-8
+    export MYSQL_USER=root
+    export MYSQL_PASSWORD=root
     export POSTGRES_USER=root
     export POSTGRES_PASSWORD=root
     cd /opt/agnostic
@@ -67,8 +68,21 @@ To run tests with code coverage, use this alternate form:
 
     nosetests --with-coverage --cover-package agnostic -v tests
 
-When you are done, you can exit from Docker by typing `Ctrl+C` in the shell from
-which you ran `docker run`.
+When you are done, you can exit from Docker by typing `Ctrl+C` in the shell
+from which you ran `docker run`.
+
+## Testing MySQL
+
+The MySQL integration tests support the following environment variables:
+
+* `MYSQL_USER` username to log in with; must be an "ALL PRIVILEGES" user
+  (required)
+* `MYSQL_PASSWORD` password to log in with (required)
+* `MYSQL_HOST` hostname to connect to (default: "localhost")
+* `MYSQL_PORT` port number to connect to (default: the MySQL default port)
+* `MYSQL_TEST_DB` the name of the test database; this database will be dropped
+  and recreated frequently while running tests, so make sure that it is not a
+  production database (default: "testdb")
 
 ## Testing Postgres
 
@@ -77,5 +91,8 @@ The PostgresSQL integration tests support the following environment variables:
 * `POSTGRES_USER` username to log in with; must be a super user (required)
 * `POSTGRES_PASSWORD` password to log in with (required)
 * `POSTGRES_HOST` hostname to connect to (default: "localhost")
-* `POSTGRES_PORT` port number to connect to (default: the postgres default
+* `POSTGRES_PORT` port number to connect to (default: the PostgreSQL default
   port)
+* `POSTGRES_TEST_DB` the name of the test database; this database will be
+  dropped and recreated frequently while running tests, so make sure that it is
+  not a production database (default: "testdb")

@@ -227,18 +227,11 @@ learn a whole new migrations system, too!
 * Flexible enough to fit a lot of different workflows.
 * Not tied to a specific programming lanuage.
 * Not tied to a specific ORM.
-* Not tied to a specific database.*
-* High unit test coverage.
+* Not tied to a specific database.
+* High automated test coverage.
 * Open source.
 
 Agnostic is the last migrations system you'll ever learn.
-
-.. warning::
-
-    \*OK, I lied a bit! Agnostic is still an alpha release, and it only
-    implements support for PostgreSQL. But I promise that it's *designed* to
-    easily add support for other databases in the future. `Pull requests
-    <https://github.com/TeamHG-Memex/agnostic/pulls>`_ are welcome.
 
 License
 -------

@@ -27,7 +27,7 @@ pass_config = click.make_pass_decorator(Config, ensure=True)
     envvar='AGNOSTIC_TYPE',
     metavar='<db_type>',
     required=True,
-    type=click.Choice(['postgres']),
+    type=click.Choice(['mysql', 'postgres']),
     help='Type of database.'
 )
 @click.option(
@@ -99,8 +99,12 @@ def main(config, db_type, host, port, user, password, database, schema,
 
     config.debug = debug
     config.migrations_dir = migrations_dir
-    config.backend = create_backend(db_type, host, port, user, password,
-                                    database, schema)
+
+    try:
+        config.backend = create_backend(db_type, host, port, user, password,
+                                        database, schema)
+    except RuntimeError as re:
+        raise click.ClickException(str(re))
 
 
 @click.command()
@@ -180,6 +184,7 @@ def drop(config, yes):
             raise click.ClickException(msg + str(e)) from e
 
     click.secho('Migration table dropped.', fg='green')
+
 
 @click.command('list')
 @pass_config
@@ -261,6 +266,7 @@ def list_(config):
                 raise
             msg = 'Cannot list migrations: {}'
             raise click.ClickException(msg.format(e))
+
 
 @click.command()
 @click.option(
