@@ -209,10 +209,10 @@ def list_(config):
     '''
 
     with _get_db_cursor(config) as (db, cursor):
-        applied, pending = _get_all_migrations(config, cursor)
-        migrations = applied + pending
-
         try:
+            applied, pending = _get_all_migrations(config, cursor)
+            migrations = applied + pending
+
             if len(migrations) == 0:
                 raise click.ClickException('No migrations exist.')
 
@@ -220,13 +220,15 @@ def list_(config):
             max_name = max([len(m.name) for m in migrations])
             max_status = max([len(m.status.name) for m in migrations])
             row_format = '{{:<{}}} | {{:{}}} | {{:<19}} | {{:<19}}'
-            row = row_format.format(max_name, max_status)
+            name_col_width = max(max_name, len(column_names[1]))
+            status_col_width = max(max_status, len(column_names[2]))
+            row = row_format.format(name_col_width, status_col_width)
             date_format = '%Y-%m-%d %H:%I:%S'
 
             click.echo(row.format(*column_names))
             click.echo(
-                '-' * (max_name + 1) + '+' +
-                '-' * (max_status + 2) + '+' +
+                '-' * (name_col_width + 1) + '+' +
+                '-' * (status_col_width + 2) + '+' +
                 '-' * 21 + '+' +
                 '-' * 20
             )
@@ -282,7 +284,13 @@ def migrate(config, backup):
 
     # Get a list of pending migrations.
     with _get_db_cursor(config) as (db, cursor):
-        if config.backend.has_failed_migrations(cursor):
+        try:
+            failed_migrations = config.backend.has_failed_migrations(cursor)
+        except Exception as e:
+            msg = 'Unable to start migrations: {}'
+            raise click.ClickException(msg.format(e))
+
+        if failed_migrations:
             msg = 'Cannot run due to previously failed migrations.'
             raise click.ClickException(click.style(msg, fg='red'))
 
@@ -312,20 +320,20 @@ def migrate(config, backup):
         try:
             _run_migrations(config, cursor, pending)
         except Exception as e:
-            raise
             click.secho('Migration failed because:', fg='red')
             click.echo(str(e))
+            config.backend.clear_db(cursor)
             db.close()
 
             if backup:
                 click.secho('Will try to restore from backup…', fg='red')
 
                 try:
-                    config.backend.clear_db(cursor)
                     with open(backup_file.name, 'r') as backup_handle:
                         _wait_for(config.backend.restore_db(backup_handle))
                     click.secho('Restored from backup.', fg='green')
                 except Exception as e2:
+                    raise e2
                     msg = 'Could not restore from backup: {}'.format(e2)
                     click.secho(msg, fg='red', bold=True)
 
@@ -356,8 +364,11 @@ def snapshot(config, outfile):
 
     click.echo('Creating snapshot of {}…'.format(config.backend.location))
 
-    _wait_for(config.backend.snapshot_db(outfile))
-    _migration_insert_sql(config, outfile)
+    try:
+        _wait_for(config.backend.snapshot_db(outfile))
+        _migration_insert_sql(config, outfile)
+    except Exception as e:
+        raise click.ClickException('Not able to create snapshot: {}'.format(e))
 
     click.secho('Snapshot written to "{}".'.format(outfile.name), fg='green')
 
@@ -408,6 +419,7 @@ def test(config, yes, current, target):
 
         click.echo('Loading current snapshot "{}".'.format(current.name))
         cursor.execute(current.read())
+        cursor.execute('select 1')
 
         # Run migrations on current schema.
         _, pending = _get_all_migrations(config, cursor)
@@ -416,7 +428,14 @@ def test(config, yes, current, target):
             'About to run {} migration{} in {}:'
             .format(total, 's' if total > 1 else '', config.backend.location)
         )
-        _run_migrations(config, cursor, pending)
+
+        try:
+            _run_migrations(config, cursor, pending)
+        except Exception as e:
+            click.secho('Migration failed because:', fg='red')
+            click.echo(str(e))
+            raise click.Abort()
+
         click.echo('Finished migrations.')
 
     # Dump the migrated schema to the temp file.
@@ -486,7 +505,10 @@ def _get_db_cursor(config):
     try:
         yield db, cursor
     finally:
-        db.close()
+        try:
+            db.close()
+        except:
+            pass
 
 
 def _get_all_migrations(config, cursor):

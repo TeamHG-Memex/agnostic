@@ -45,10 +45,10 @@ class MysqlBackend(AbstractBackend):
         # Drop tables.
         cursor.execute('''
             SELECT table_name FROM information_schema.tables
-             WHERE table_catalog = %s
+             WHERE table_schema = %s
         ''', (self._database,))
 
-        tables = ['"{}"."{}"'.format(r[0], r[1]) for r in cursor.fetchall()]
+        tables = [row[0] for row in cursor.fetchall()]
 
         if len(tables) > 0:
             sql = 'DROP TABLE {} '.format(', '.join(tables))
@@ -81,7 +81,7 @@ class MysqlBackend(AbstractBackend):
         env = {'MYSQL_PWD': self._password}
 
         command = [
-            'mysqldump',
+            'mysql',
             '-h', self._host,
             '-u', self._user,
         ]
@@ -120,7 +120,7 @@ class MysqlBackend(AbstractBackend):
             '-u', self._user,
             '--no-create-db',
             '--no-data',
-            '--skip-comments',
+            '--compact',
         ]
 
         if self._port is not None:

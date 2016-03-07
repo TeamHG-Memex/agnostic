@@ -184,12 +184,13 @@ class AbstractBackend(metaclass=ABCMeta):
     def get_migration_records(self, cursor):
         ''' Get migrations metadata from the database. '''
 
-        cursor.execute('''
-            SELECT *
+        query = '''
+            SELECT name, status, started_at, completed_at
               FROM agnostic_migrations
           ORDER BY started_at, name
-        ''')
+        '''
 
+        cursor.execute(query)
         return [Migration(*row) for row in cursor.fetchall()]
 
     def has_failed_migrations(self, cursor):
