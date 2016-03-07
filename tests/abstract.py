@@ -91,8 +91,8 @@ class AbstractDatabaseTest(metaclass=ABCMeta):
         '''
 
         try:
-            user = os.environ['POSTGRES_USER']
-            password = os.environ['POSTGRES_PASSWORD']
+            user = os.environ['{}_USER'.format(self.db_type.upper())]
+            password = os.environ['{}_PASSWORD'.format(self.db_type.upper())]
         except KeyError as key:
             message = 'Missing environment variable: {}'
             raise unittest.SkipTest(message.format(key.args[0]))
