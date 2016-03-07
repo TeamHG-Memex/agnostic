@@ -7,11 +7,12 @@ import tempfile
 import traceback
 import unittest
 
+from click import ClickException
 from click.testing import CliRunner
 import psycopg2
-from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 
 import agnostic
+import agnostic.cli
 
 
 class TestPostgreSql(unittest.TestCase):
@@ -59,7 +60,7 @@ class TestPostgreSql(unittest.TestCase):
     def create_migrations_table(self, cursor):
         ''' Create a migrations table. '''
 
-        table_sql = agnostic._get_create_table_sql(TestPostgreSql.DB_TYPE)
+        table_sql = agnostic.MIGRATION_TABLE_SQL
         cursor.execute(table_sql)
 
     def get_credentials_from_env(self):
@@ -98,10 +99,10 @@ class TestPostgreSql(unittest.TestCase):
         db.autocommit = True
         cursor = db.cursor()
 
-        yield db, cursor
-
-        cursor.close()
-        db.close()
+        try:
+            yield db, cursor
+        finally:
+            db.close()
 
     def get_migration(self, fixture_name, migration_name):
         ''' Get the text of a migration script. '''
@@ -164,7 +165,12 @@ class TestPostgreSql(unittest.TestCase):
             command.extend(['-p', os.environ['POSTGRES_PORT']])
 
         command.extend(args)
-        result = CliRunner().invoke(agnostic.cli, command)
+
+        result = CliRunner().invoke(
+            agnostic.cli.main,
+            command,
+            catch_exceptions=False
+        )
 
         # Nose suppresses stdout for passing tests and displays it only for
         # failed/errored tests.
@@ -172,9 +178,6 @@ class TestPostgreSql(unittest.TestCase):
         print('COMMAND: {}'.format(command))
         print('EXIT CODE: {}'.format(result.exit_code))
         print('OUTPUT:\n{}'.format(result.output))
-
-        if result.exception is not None:
-            print('\n'.join(traceback.format_exception(*result.exc_info)))
 
         return result
 

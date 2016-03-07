@@ -3,5 +3,5 @@ _build
 build
 *.egg-info
 .coverage
+.test_env
 dist
-

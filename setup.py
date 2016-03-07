@@ -10,7 +10,7 @@ setup(
     license='MIT',
     keywords='database migrations',
     url='https://github.com/TeamHG-Memex/agnostic',
-    py_modules=['agnostic'],
+    packages=['agnostic'],
     classifiers=[
         'Development Status :: 3 - Alpha',
         'Environment :: Console',
@@ -25,6 +25,6 @@ setup(
     ],
     entry_points='''
         [console_scripts]
-        agnostic=agnostic:cli
+        agnostic=agnostic.cli:main
     '''
 )
