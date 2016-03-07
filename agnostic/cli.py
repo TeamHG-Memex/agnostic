@@ -417,10 +417,10 @@ def test(config, yes, current, target):
         click.echo('Dropping {}.'.format(config.backend.location))
         config.backend.clear_db(cursor)
 
-        click.echo('Loading current snapshot "{}".'.format(current.name))
-        cursor.execute(current.read())
-        cursor.execute('select 1')
+    click.echo('Loading current snapshot "{}".'.format(current.name))
+    _wait_for(config.backend.restore_db(current))
 
+    with _get_db_cursor(config) as (db, cursor):
         # Run migrations on current schema.
         _, pending = _get_all_migrations(config, cursor)
         total = len(pending)

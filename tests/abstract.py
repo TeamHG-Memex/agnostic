@@ -5,6 +5,7 @@ import os
 import shutil
 import tempfile
 import unittest
+import warnings
 
 from click.testing import CliRunner
 
@@ -42,7 +43,7 @@ class AbstractDatabaseTest(metaclass=ABCMeta):
         self._port = os.getenv(port_env, None)
 
         test_db_env = '{}_TEST_DB'.format(self.db_type.upper())
-        self._test_db = os.getenv(test_db_env, 'localhost')
+        self._test_db = os.getenv(test_db_env, 'testdb')
 
         super().__init__(*args, **kwargs)
 
@@ -117,7 +118,10 @@ class AbstractDatabaseTest(metaclass=ABCMeta):
         try:
             yield db, cursor
         finally:
-            db.close()
+            try:
+                db.close()
+            except:
+                pass
 
     def get_migration(self, fixture_name, migration_name):
         ''' Get the text of a migration script. '''
@@ -182,18 +186,15 @@ class AbstractDatabaseTest(metaclass=ABCMeta):
 
         command.extend(args)
 
-        result = CliRunner().invoke(
-            agnostic.cli.main,
-            command,
-            catch_exceptions=False
-        )
+        result = CliRunner().invoke(agnostic.cli.main, command)
 
-        # Nose suppresses stdout for passing tests and displays it only for
-        # failed/errored tests.
-        print('== run_cli() {}'.format('=' * 57))
-        print('COMMAND: {}'.format(command))
-        print('EXIT CODE: {}'.format(result.exit_code))
-        print('OUTPUT:\n{}'.format(result.output))
+        if result.exception is not None and \
+           not isinstance(result.exception, SystemExit):
+            print('== run_cli exception ==')
+            print('COMMAND: {}'.format(command))
+            print('EXIT CODE: {}'.format(result.exit_code))
+            print('OUTPUT:\n{}'.format(result.output))
+            raise result.exception
 
         return result
 
@@ -213,7 +214,12 @@ class AbstractDatabaseTest(metaclass=ABCMeta):
         ''' Create test database. '''
 
         with self.get_db(self.default_db) as (db, cursor):
-            cursor.execute('DROP DATABASE IF EXISTS {}'.format(self._test_db))
+            with warnings.catch_warnings():
+                # Don't show a warning if the database doesn't exist.
+                warnings.simplefilter('ignore')
+                drop_sql = 'DROP DATABASE IF EXISTS {}'
+                cursor.execute(drop_sql.format(self._test_db))
+
             cursor.execute('CREATE DATABASE {}'.format(self._test_db))
 
     @abstractmethod

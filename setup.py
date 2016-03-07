@@ -25,7 +25,7 @@ setup(
     ],
     extras_require = {
         'mysql': ['PyMySQL'],
-        'postgres': ['psycopg2'],
+        'postgres': ['pg8000'],
     },
     entry_points='''
         [console_scripts]

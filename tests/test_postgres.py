@@ -9,7 +9,7 @@ import unittest
 
 from click import ClickException
 from click.testing import CliRunner
-import psycopg2
+import pg8000
 
 import agnostic
 import agnostic.cli
@@ -34,14 +34,20 @@ class TestPostgreSql(AbstractDatabaseTest, unittest.TestCase):
     def connect_db(self, user, password, database):
         ''' Return a connection to the specified database. '''
 
-        db = psycopg2.connect(
-            host=os.getenv('POSTGRES_HOST', 'localhost'),
-            port=os.getenv('POSTGRES_PORT', None),
-            user=user,
-            password=password,
-            database=database
-        )
+        connect_args = {
+            'host': os.getenv('POSTGRES_HOST', 'localhost'),
+            'user': user,
+            'password': password,
+            'database': database,
+            'timeout': 1,
+        }
 
+        try:
+            connect_args['port'] = os.environ['POSTGRES_PORT']
+        except KeyError:
+            pass
+
+        db = pg8000.connect(**connect_args)
         db.autocommit = True
         return db
 

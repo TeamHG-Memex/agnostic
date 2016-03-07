@@ -91,8 +91,8 @@ def create_backend(db_type, host, port, user, password, database, schema):
         try:
             from agnostic.postgres import PostgresBackend
         except ImportError as ie:
-            if ie.name == 'psycopg2':
-                msg = 'The `psycopg2` module is required for Postgres.'
+            if ie.name == 'pg8000':
+                msg = 'The `pg8000` module is required for Postgres.'
                 raise click.ClickException(msg)
             else:
                 raise
@@ -144,6 +144,8 @@ class AbstractBackend(metaclass=ABCMeta):
         '''
         Return a ``Popen`` instance that will restore the database from the
         ``backup_file`` handle.
+
+        This should work both for snapshots and backups.
         '''
 
     @abstractmethod
@@ -218,15 +220,10 @@ class AbstractBackend(metaclass=ABCMeta):
 
         sql = '''
             INSERT INTO agnostic_migrations (name, status, started_at)
-            VALUES (%(name)s, %(status)s, NOW())
+            VALUES (%s, %s, NOW())
         '''
 
-        args = {
-            'name': migration.name,
-            'status': MigrationStatus.failed.name
-        }
-
-        cursor.execute(sql, args)
+        cursor.execute(sql, [migration.name, MigrationStatus.failed.name])
 
     def migration_succeeded(self, cursor, migration):
         '''
@@ -236,13 +233,8 @@ class AbstractBackend(metaclass=ABCMeta):
 
         sql = '''
             UPDATE agnostic_migrations
-               SET status = %(status)s, completed_at = NOW()
-             WHERE name = %(name)s
+               SET status = %s, completed_at = NOW()
+             WHERE name = %s
         '''
 
-        args = {
-            'name': migration.name,
-            'status': MigrationStatus.succeeded.name
-        }
-
-        cursor.execute(sql, args)
+        cursor.execute(sql, [migration.name, MigrationStatus.succeeded.name])
