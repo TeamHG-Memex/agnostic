@@ -5,6 +5,7 @@ import os
 import tempfile
 
 import click
+import sqlparse
 
 from agnostic import create_backend, Migration, MigrationStatus
 
@@ -589,11 +590,23 @@ def _run_migrations(config, cursor, migrations):
         config.backend.migration_started(cursor, migration)
 
         with open(mig2file(migration), 'r') as migration_file:
-            sql = migration_file.read()
-            if sql.strip() != '':
-                cursor.execute(sql.strip())
+            _run_sql(cursor, migration_file.read())
 
         config.backend.migration_succeeded(cursor, migration)
+
+
+def _run_sql(cursor, sql):
+    '''
+    Run a block of SQL on the specified cursor.
+
+    This breaks up the block into individual statements so that database
+    drivers that don't support query stacking (multiple queries at once)
+    won't break.
+    '''
+
+    for statement in sqlparse.parse(sql):
+        if statement.get_type() != 'UNKNOWN':
+            cursor.execute(str(statement))
 
 
 def _wait_for(process):

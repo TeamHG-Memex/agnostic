@@ -8,7 +8,7 @@ MAINTAINER mehaase@gmail.com
 RUN apt-get update
 RUN apt-get install -y curl mysql-server postgresql supervisor
 RUN curl  https://bootstrap.pypa.io/get-pip.py | python3
-RUN pip3 install Click coveralls nose pg8000 PyMySQL
+RUN pip3 install Click coveralls nose pg8000 PyMySQL sqlparse
 COPY supervisor.conf /etc/supervisor/conf.d/agnostic-tests.conf
 RUN mkdir -p /var/log/supervisor
 

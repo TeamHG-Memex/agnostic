@@ -24,8 +24,8 @@ closely as possible, so that the full test suite can be run locally before
 committing and pushing.
 
 Docker containers are not mutable: they are restored to their original state
-when they are stopped and restarted. This is a good thing for integration tests!
-It means that the testing environment can quickly be restored to a known state.
+when they are stopped and restarted. This is a good thing for integration
+tests: the testing environment always begins at a known state.
 
 To build the docker image, run the following command from the project root:
 

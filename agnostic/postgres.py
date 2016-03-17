@@ -76,7 +76,7 @@ class PostgresBackend(AbstractBackend):
              WHERE typtype = 'e'
         ''')
 
-        types = ['"%s"'.format(row[0]) for row in cursor.fetchall()]
+        types = ['"{}"'.format(row[0]) for row in cursor.fetchall()]
 
         if len(types) > 0:
             sql = 'DROP TYPE {} CASCADE'.format(','.join(types))

@@ -1,11 +1,17 @@
 Agnostic Database Migrations
 ============================
 
+.. image:: https://img.shields.io/pypi/v/agnostic.svg
+   :target: https://pypi.python.org/pypi/agnostic
+   :alt: PyPI Version
+
 .. image:: https://travis-ci.org/TeamHG-Memex/agnostic.svg?branch=master
     :target: https://travis-ci.org/TeamHG-Memex/agnostic
+    :alt: Build Status
 
 .. image:: https://coveralls.io/repos/github/TeamHG-Memex/agnostic/badge.svg?branch=master
     :target: https://coveralls.io/github/TeamHG-Memex/agnostic?branch=master
+    :alt: Code Coverage
 
 Overview
 --------

@@ -82,7 +82,7 @@ def create_backend(db_type, host, port, user, password, database, schema):
         except ImportError as ie:
             if ie.name == 'pymysql':
                 msg = 'The `pymysql` module is required for MySQL.'
-                raise click.ClickException(msg)
+                raise RuntimeError(msg)
             else:
                 raise
         return MysqlBackend(host, port, user, password, database, schema)
@@ -93,7 +93,7 @@ def create_backend(db_type, host, port, user, password, database, schema):
         except ImportError as ie:
             if ie.name == 'pg8000':
                 msg = 'The `pg8000` module is required for Postgres.'
-                raise click.ClickException(msg)
+                raise RuntimeError(msg)
             else:
                 raise
         return PostgresBackend(host, port, user, password, database, schema)

@@ -6,7 +6,7 @@ services:
   - mysql
   - postgresql
 install:
-  - pip install Click coveralls pg8000 PyMySQL
+  - pip install Click coveralls pg8000 PyMySQL sqlparse
 env:
   - LC_ALL=C.UTF-8 MYSQL_USER=root MYSQL_PASSWORD='' POSTGRES_USER=postgres POSTGRES_PASSWORD=''
 script:

@@ -22,6 +22,7 @@ setup(
     ],
     install_requires=[
         'Click',
+        'sqlparse',
     ],
     extras_require = {
         'mysql': ['PyMySQL'],

@@ -208,7 +208,7 @@ class AbstractDatabaseTest(metaclass=ABCMeta):
         for migration_name in migration_names:
             self.insert_migration(cursor, migration_name, 'bootstrapped')
             migration = self.get_migration(migration_fixture, migration_name)
-            cursor.execute(migration)
+            agnostic.cli._run_sql(cursor, migration)
 
     def setUp(self):
         ''' Create test database. '''
@@ -347,7 +347,7 @@ class AbstractDatabaseTest(metaclass=ABCMeta):
             migration_name = '1_create_employee_table'
             self.insert_migration(cursor, migration_name, 'succeeded')
             migration1 = self.get_migration('employee', migration_name)
-            cursor.execute(migration1)
+            agnostic.cli._run_sql(cursor, migration1)
 
         migrations_dir = self.create_migrations_dir('employee', [
             '1_create_employee_table',
@@ -387,13 +387,12 @@ class AbstractDatabaseTest(metaclass=ABCMeta):
         The "snapshot" command dumps schema but no data.
         '''
 
-
         with self.get_db(self._test_db) as (db, cursor):
             self.create_migrations_table(cursor)
             migration_name = '1_create_employee_table'
             self.insert_migration(cursor, migration_name, 'succeeded')
-            migration1 = self.get_migration('employee', migration_name)
-            cursor.execute(migration1)
+            migration = self.get_migration('employee', migration_name)
+            agnostic.cli._run_sql(cursor, migration)
 
             cursor.execute('''
                 INSERT INTO employee VALUES (1, 'John', 'Doe', '2025551234')
