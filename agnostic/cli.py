@@ -300,7 +300,7 @@ def migrate(config, backup):
 
         if total == 0:
             raise click.ClickException(
-                click.style('There are no pending migrations.', fg='green')
+                click.style('There are no pending migrations.', fg='red')
             )
 
     # Make a backup file [optional].
@@ -323,11 +323,11 @@ def migrate(config, backup):
         except Exception as e:
             click.secho('Migration failed because:', fg='red')
             click.echo(str(e))
-            config.backend.clear_db(cursor)
-            db.close()
 
             if backup:
                 click.secho('Will try to restore from backup…', fg='red')
+                config.backend.clear_db(cursor)
+                db.close()
 
                 try:
                     with open(backup_file.name, 'r') as backup_handle:

@@ -237,4 +237,4 @@ class AbstractBackend(metaclass=ABCMeta):
              WHERE name = %s
         '''
 
-        cursor.execute(sql, [migration.name, MigrationStatus.succeeded.name])
+        cursor.execute(sql, [MigrationStatus.succeeded.name, migration.name])

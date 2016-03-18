@@ -365,6 +365,16 @@ class AbstractDatabaseTest(metaclass=ABCMeta):
             self.assertEqual(columns[3], 'phone_home')
             self.assertEqual(columns[4], 'phone_cell')
 
+            # Migration metadata should be updated.
+            cursor.execute('''
+                SELECT status FROM agnostic_migrations
+                WHERE name = '2_rename_phone_to_home' OR
+                      name = '3_add_cell_phone'
+            ''')
+            (status1,), (status2,) = cursor.fetchall()
+            self.assertEqual('succeeded', status1)
+            self.assertEqual('succeeded', status2)
+
     def test_migrate_error_if_nothing_pending(self):
         '''
         The "migrate" command exits with an error if no migrations are pending.

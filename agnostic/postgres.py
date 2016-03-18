@@ -96,7 +96,6 @@ class PostgresBackend(AbstractBackend):
             'user': self._user,
             'password': self._password,
             'database': self._database,
-            'timeout': 1,
         }
 
         if self._port is not None:
