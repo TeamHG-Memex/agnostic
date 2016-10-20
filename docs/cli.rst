@@ -111,7 +111,7 @@ The first idea is obvious to shell power users: set up an alias (e.g. in your
 
 .. code:: bash
 
-    alias ag=agnostic -h myhost -t postgres -u myuser -s myapp -m /opt/myapp/migrations
+    alias ag=agnostic -h myhost -t postgres -u myuser -d mydb -m /opt/myapp/migrations
 
 Now you can run shorter commands like ``ag snapshot foo.sql`` or ``ag migrate``.
 This approach may be a bit limiting if you have multiple projects and each

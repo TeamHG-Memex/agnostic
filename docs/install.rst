@@ -8,9 +8,10 @@ The easiest way to install Agnostic is from PyPI.
 
 .. note::
 
-    Agnostic is Python 3 only, so make sure that you are using ``pip3``, not
-    ``pip2``. Don't worry: you can use Agnostic with Python 2 projects; only
-    Agnostic itself needs to run in the Python 3 interpreter.
+    Agnostic requires Python 3, so make sure that you are using ``pip3``, not
+    ``pip2``. Don't worry: you can use Agnostic with Python 2 projects — or
+    projects written in *any programming language* — but Agnostic itself needs
+    to run in the Python 3 interpreter.
 
 Agnostic requires a specific driver for each database you want to use it with,
 so *choose one of the following forms* to install Agnostic with the correct

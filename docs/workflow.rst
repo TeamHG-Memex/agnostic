@@ -33,7 +33,7 @@ migrations system.
 
     ~/myapp $ mkdir migrations
 
-    ~/myapp $ agnostic -t postgres -u myuser -s myapp bootstrap
+    ~/myapp $ agnostic -t postgres -u myuser -d mydb bootstrap
     Migration table created
 
 That's it! If you're familiar with other migrations systems, then you may be
@@ -67,7 +67,7 @@ data. Snapshots are useful for testing, which we will see later.
 
 .. code:: bash
 
-    ~/myapp $ agnostic -t postgres -u myuser -s myapp snapshot current.sql
+    ~/myapp $ agnostic -t postgres -u myuser -d mydb snapshot current.sql
     Creating snapshot...
     Snapshot written to "current.sql".
 
@@ -96,10 +96,10 @@ understand what the ORM has changed. We'll begin by taking a second snapshot.
 
 .. code:: bash
 
-    ~/myapp $ agnostic -t postgres -u myuser -s myapp bootstrap
+    ~/myapp $ agnostic -t postgres -u myuser -d mydb bootstrap
     Migration table created
 
-    ~/myapp $ agnostic -t postgres -u myuser -s myapp snapshot target.sql
+    ~/myapp $ agnostic -t postgres -u myuser -d mydb snapshot target.sql
     Creating snapshot...
     Snapshot written to "target.sql".
 
@@ -164,7 +164,7 @@ Sounds like a lot of thankless, tedious work, right?
 
 .. code:: bash
 
-    ~/myapp $ agnostic -t postgres -u myuser -s myapp test current.sql target.sql
+    ~/myapp $ agnostic -t postgres -u myuser -d mydb test current.sql target.sql
     WARNING: This will drop the schema "myapp"!
     Are you 100% positive that you want to do this? [y/N]: y
     Dropping schema "myapp".
@@ -197,23 +197,23 @@ migrations.
 
     ~/myapp $ # SCM checkout original version && ORM build schema
 
-    ~/myapp $ agnostic -t postgres -u myuser -s myapp bootstrap
+    ~/myapp $ agnostic -t postgres -u myuser -d mydb bootstrap
     Migration table created
 
-    ~/myapp $ agnostic -t postgres -u myuser -s myapp snapshot current.sql
+    ~/myapp $ agnostic -t postgres -u myuser -d mydb snapshot current.sql
     Creating snapshot...
     Snapshot written to "current.sql".
 
     ~/myapp $ # SCM checkout latest version && ORM build schema
 
-    ~/myapp $ agnostic -t postgres -u myuser -s myapp bootstrap
+    ~/myapp $ agnostic -t postgres -u myuser -d mydb bootstrap
     Migration table created
 
-    ~/myapp $ agnostic -t postgres -u myuser -s myapp snapshot target.sql
+    ~/myapp $ agnostic -t postgres -u myuser -d mydb snapshot target.sql
     Creating snapshot...
     Snapshot written to "target.sql".
 
-    ~/myapp $ agnostic -t postgres -u myuser -s myapp test current.sql target.sql
+    ~/myapp $ agnostic -t postgres -u myuser -d mydb test current.sql target.sql
     WARNING: This will drop the schema "myapp"!
     Are you 100% positive that you want to do this? [y/N]: y
     Dropping schema "myapp".
@@ -248,7 +248,7 @@ Now re-execute the test:
 
 .. code:: bash
 
-    ~/myapp $ agnostic -t postgres -u myuser -s myapp test current.sql target.sql
+    ~/myapp $ agnostic -t postgres -u myuser -d mydb test current.sql target.sql
     WARNING: This will drop the schema "myapp"!
     Are you 100% positive that you want to do this? [y/N]: y
     Dropping schema "myapp".
@@ -285,7 +285,7 @@ One last fix and re-test:
 
     ~/myapp $ sed -i 's:office_phon:office_phone:' migrations/add_office_phone.sql
 
-    ~/myapp $ agnostic -t postgres -u myuser -s myapp test current.sql target.sql
+    ~/myapp $ agnostic -t postgres -u myuser -d mydb test current.sql target.sql
     WARNING: This will drop the schema "myapp"!
     Are you 100% positive that you want to do this? [y/N]: y
     Dropping schema "myapp".
@@ -319,7 +319,7 @@ to be surprised by when you migrate your production databases.
 
 .. code:: bash
 
-    ~/myapp $ agnostic -t postgres -u myuser -s myapp migrate
+    ~/myapp $ agnostic -t postgres -u myuser -d mydb migrate
     Backing up schema "myapp" to "/tmp/tmpuy2v7hxc".
     About to run 3 migrations in schema "myapp":
      * Running migration add_cell_phone (1/3)

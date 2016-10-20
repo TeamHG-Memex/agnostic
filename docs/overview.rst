@@ -59,7 +59,7 @@ database to hold metadata about migrations.
 
 .. code:: bash
 
-    ~/myapp $ agnostic -t postgres -u myuser -s myapp bootstrap
+    ~/myapp $ agnostic -t postgres -u myuser -d mydb bootstrap
     Migration table created.
 
 **Now, write SQL scripts for each of the changes** and save them in the
@@ -77,7 +77,7 @@ database to hold metadata about migrations.
 
 .. code:: bash
 
-    ~/myapp $ agnostic -t postgres -u myuser -s myapp migrate
+    ~/myapp $ agnostic -t postgres -u myuser -d mydb migrate
     Backing up schema "myapp" to "/tmp/tmprhty1nc7".
     About to run 2 migrations in schema "myapp":
      * Running migration add_cell_phone (1/2)
@@ -112,7 +112,7 @@ Let's fix the typo and run it again.
     ~/myapp $ sed -i 's:VARCHR:VARCHAR:' migrations/add_nickname.sql
     ALTER TABLE customer ADD nickname VARCHAR(255);
 
-    ~/myapp $ agnostic -t postgres -u myuser -s myapp migrate
+    ~/myapp $ agnostic -t postgres -u myuser -d mydb migrate
     Backing up schema "myapp" to "/tmp/tmpm8glpgaa".
     About to run 2 migrations in schema "myapp":
      * Running migration add_cell_phone (1/2)
@@ -131,14 +131,14 @@ migrations.
     ~/myapp $ cat > migrations/drop_nickname.sql
     ALTER TABLE customer DROP nickname;
 
-    ~/myapp $ agnostic -t postgres -u myuser -s myapp list
+    ~/myapp $ agnostic -t postgres -u myuser -d mydb list
     Name           | Status    | Started At          | Completed At
     ---------------+-----------+---------------------+--------------------
     add_cell_phone | succeeded | 2015-05-23 21:09:33 | 2015-05-23 21:09:34
     add_nickname   | succeeded | 2015-05-23 21:09:34 | 2015-05-23 21:09:34
     drop_nickname  | pending   | N/A                 | N/A
 
-    ~/myapp $ agnostic -t postgres -u myuser -s myapp migrate
+    ~/myapp $ agnostic -t postgres -u myuser -d mydb migrate
     Backing up schema "myapp" to "/tmp/tmpiq5fhnh6".
     About to run 1 migration in schema "myapp":
      * Running migration drop_nickname (1/1)

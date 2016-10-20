@@ -27,12 +27,9 @@ Here is an absurdly brief introduction to Agnostic:
 
 .. code:: bash
 
-    ~/myapp $ pip3 install agnostic # Notice: python3 only!
-    <snip>
-
     ~/myapp $ mkdir migrations
 
-    ~/myapp $ agnostic -t postgres -u myuser -s myapp bootstrap
+    ~/myapp $ agnostic -t postgres -u myuser -d mydb bootstrap
     Migration table created.
 
     ~/myapp $ cat > migrations/add_cell_phone.sql
@@ -43,9 +40,9 @@ Here is an absurdly brief introduction to Agnostic:
     ALTER TABLE customer ADD nickname VARCHAR(255);
     ^D
 
-    ~/myapp $ agnostic -t postgres -u myuser -s myapp migrate
-    Backing up schema "myapp" to "/tmp/tmpm8glpgaa".
-    About to run 2 migrations in schema "myapp":
+    ~/myapp $ agnostic -t postgres -u myuser -d mydb migrate
+    Backing up "mydb" to "/tmp/tmpm8glpgaa".
+    About to run 2 migrations in "mydb":
      * Running migration add_cell_phone (1/2)
      * Running migration add_nickname (2/2)
     Migrations completed successfully.
