@@ -17,12 +17,10 @@ from tests.abstract import AbstractDatabaseTest
 
 
 class TestMysql(AbstractDatabaseTest, unittest.TestCase):
-    '''
-    Integration tests for Agnostic Database Migrations & MySQL.
+    ''' Integration tests for MySQL '''
 
-    Note that MySQL uses "schema" and "database" interchangeably, which leads
-    to some unintuitive code in this test suite.
-    '''
+    # Note that MySQL uses "schema" and "database" interchangeably, which leads
+    # to some unintuitive code in this test suite.
 
     @property
     def db_type(self):

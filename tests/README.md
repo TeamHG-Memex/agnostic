@@ -57,7 +57,7 @@ accessing the various databases.
     export POSTGRES_USER=root
     export POSTGRES_PASSWORD=root
     cd /opt/agnostic
-    nosetests -v tests
+    python3 -m tests --with-reportclassname -v
 
 The Agnostic source code in the container is mounted from the host system. This
 means that you can edit the code on your host system, then immediately re-
@@ -66,7 +66,7 @@ anything like that.
 
 To run tests with code coverage, use this alternate form:
 
-    nosetests --with-coverage --cover-package agnostic -v tests
+    python3 -m tests --with-coverage --cover-package agnostic --with-reportclassname -v
 
 When you are done, you can exit from Docker by typing `Ctrl+C` in the shell
 from which you ran `docker run`.

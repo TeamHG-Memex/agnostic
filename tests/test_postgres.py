@@ -17,9 +17,7 @@ from tests.abstract import AbstractDatabaseTest
 
 
 class TestPostgreSql(AbstractDatabaseTest, unittest.TestCase):
-    '''
-    Integration tests for Agnostic Database Migrations & PostgreSQL.
-    '''
+    ''' Integration tests for PostgreSQL '''
 
     @property
     def db_type(self):
