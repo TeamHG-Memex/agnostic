@@ -9,12 +9,16 @@ MigrationStatus = Enum(
 )
 
 
+# Different databases treat timestamp columns differently, e.g. MySQL will
+# automatically coerce `null` to `now()``! To be defensive, we explicitly
+# include the `NULL DEFAULT NULL` for nullable fields, even though it might
+# be redundant in ANSI SQL.
 MIGRATION_TABLE_SQL = '''
     CREATE TABLE agnostic_migrations (
         name VARCHAR(255) PRIMARY KEY,
-        status VARCHAR(255),
-        started_at TIMESTAMP,
-        completed_at TIMESTAMP
+        status VARCHAR(255) NULL DEFAULT NULL,
+        started_at TIMESTAMP NULL DEFAULT NULL,
+        completed_at TIMESTAMP NULL DEFAULT NULL
     )
 '''
 
