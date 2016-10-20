@@ -13,8 +13,8 @@ MIGRATION_TABLE_SQL = '''
     CREATE TABLE agnostic_migrations (
         name VARCHAR(255) PRIMARY KEY,
         status VARCHAR(255),
-        started_at TIMESTAMP,
-        completed_at TIMESTAMP
+        started_at TIMESTAMP DEFAULT NOW(),
+        completed_at TIMESTAMP DEFAULT NOW()
     )
 '''
 
