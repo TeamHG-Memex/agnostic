@@ -14,7 +14,7 @@ MIGRATION_TABLE_SQL = '''
         name VARCHAR(255) PRIMARY KEY,
         status VARCHAR(255),
         started_at TIMESTAMP DEFAULT NOW(),
-        completed_at TIMESTAMP DEFAULT NOW()
+        completed_at TIMESTAMP NULL DEFAULT NULL
     )
 '''
 
