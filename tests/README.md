@@ -48,14 +48,8 @@ command in another terminal window:
     docker exec -it agnostic-tests /bin/bash
 
 With this shell, you can run commands inside the container, completely isolated
-from the host system. In order to run the test suite, you need to export
-environment variables that tell the test suite what credentials to use when
-accessing the various databases.
+from the host system.
 
-    export MYSQL_USER=root
-    export MYSQL_PASSWORD=root
-    export POSTGRES_USER=root
-    export POSTGRES_PASSWORD=root
     cd /opt/agnostic
     python3 -m tests --with-reportclassname -v
 
@@ -70,6 +64,22 @@ To run tests with code coverage, use this alternate form:
 
 When you are done, you can exit from Docker by typing `Ctrl+C` in the shell
 from which you ran `docker run`.
+
+## Travis CI && Coveralls
+
+Tests for this project run automatically on [Travis
+CI](https://travis-ci.org/TeamHG-Memex/agnostic) and code coverage is computed
+by [Coveralls](https://coveralls.io/github/TeamHG-Memex/agnostic) after each
+push to GitHub. The Travis build depends on being able to pull the Docker
+container described in the previous section. Any time you modify the
+`agnostic-tests` Docker image, you should tag and push it to Docker Hub so that
+Travis CI will be able to find it.
+
+    docker tag agnostic-tests hyperiongray/agnostic-tests
+    docker push hyperiongray/agnostic-tests
+
+Even though the `:latest` tag is usually a bad idea, it should be fine for this
+extremely simple image that will not change very often.
 
 ## Testing MySQL
 

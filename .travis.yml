@@ -1,14 +1,13 @@
-language: python
-python: 3.4
-addons:
-  postgresql: 9.3
 services:
-  - mysql
-  - postgresql
-install:
-  - pip install Click coveralls pg8000 PyMySQL sqlparse
-env:
-  - LC_ALL=C.UTF-8 MYSQL_USER=root MYSQL_PASSWORD='' POSTGRES_USER=postgres POSTGRES_PASSWORD=''
+  - docker
+
+before_install:
+  - docker pull hyperiongray/agnostic-tests
+  - docker run --name agnostic-tests -v $TRAVIS_BUILD_DIR:/opt/agnostic hyperiongray/agnostic-tests
+
 script:
-  - nosetests --with-coverage --cover-package agnostic -v tests
-after_success: coveralls
+  - "docker exec -w /opt/agnostic hyperiongray/agnostic-tests python3 -m tests
+    --with-coverage --cover-package agnostic --with-reportclassname -v'"
+
+after_success:
+  - coveralls

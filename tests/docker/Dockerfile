@@ -3,10 +3,11 @@
 # is as similar to Travis CI environment as possible.
 ##############################################################################
 
-FROM ubuntu:14.04
+FROM ubuntu:16.04
 MAINTAINER mehaase@gmail.com
-RUN apt-get update
-RUN apt-get install -y curl mysql-server postgresql supervisor
+RUN apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y curl mysql-server postgresql supervisor && \
+    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 RUN curl  https://bootstrap.pypa.io/get-pip.py | python3
 RUN pip3 install Click coveralls nose pg8000 PyMySQL sqlparse
 COPY supervisor.conf /etc/supervisor/conf.d/agnostic-tests.conf
@@ -17,14 +18,19 @@ RUN /etc/init.d/mysql start && \
 
 # "CREATE DATABASE" is much faster with fsync disabled:
 RUN sed --in-place 's:#fsync = on:fsync = off:' \
-       /etc/postgresql/9.3/main/postgresql.conf
+       /etc/postgresql/9.5/main/postgresql.conf
 
 RUN /etc/init.d/postgresql start && \
-    sudo -u postgres psql \
-         --command "CREATE USER root WITH SUPERUSER PASSWORD 'root';"
+    su postgres -c "echo CREATE USER root WITH SUPERUSER PASSWORD \\'root\\' | psql"
 
 # This environment variable allows Click to print to stdout:
 ENV LANG=C.UTF-8
+
+# Provide default credentials for integration tests.
+ENV MYSQL_USER=root
+ENV MYSQL_PASSWORD=root
+ENV POSTGRES_USER=root
+ENV POSTGRES_PASSWORD=root
 
 VOLUME /opt/agnostic
 ENTRYPOINT ["/usr/bin/supervisord"]
