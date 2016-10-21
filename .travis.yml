@@ -4,6 +4,7 @@ services:
 before_install:
   - docker pull hyperiongray/agnostic-tests
   - docker run -d --name agnostic-tests -v $TRAVIS_BUILD_DIR:/opt/agnostic hyperiongray/agnostic-tests
+  - sleep 10 # Allow time for Docker container & databases to start up.
 
 script:
   - docker exec agnostic-tests bash -c "cd /opt/agnostic && python3 -m tests --with-coverage --cover-package agnostic --with-reportclassname -v"
