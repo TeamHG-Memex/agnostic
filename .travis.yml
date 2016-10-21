@@ -6,8 +6,10 @@ before_install:
   - docker run -d --name agnostic-tests -v $TRAVIS_BUILD_DIR:/opt/agnostic hyperiongray/agnostic-tests
 
 script:
-  - "docker exec -w /opt/agnostic hyperiongray/agnostic-tests python3 -m tests
-    --with-coverage --cover-package agnostic --with-reportclassname -v'"
+  - docker exec agnostic-tests bash -c "cd /opt/agnostic && python3 -m tests --with-coverage --cover-package agnostic --with-reportclassname -v"
 
 after_success:
   - coveralls
+
+after_script:
+  - docker stop agnostic-tests
