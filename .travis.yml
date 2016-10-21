@@ -3,7 +3,7 @@ services:
 
 before_install:
   - docker pull hyperiongray/agnostic-tests
-  - docker run --name agnostic-tests -v $TRAVIS_BUILD_DIR:/opt/agnostic hyperiongray/agnostic-tests
+  - docker run -d --name agnostic-tests -v $TRAVIS_BUILD_DIR:/opt/agnostic hyperiongray/agnostic-tests
 
 script:
   - "docker exec -w /opt/agnostic hyperiongray/agnostic-tests python3 -m tests
