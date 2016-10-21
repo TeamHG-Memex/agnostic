@@ -19,13 +19,14 @@ then that test will error out.
 The full test suite can be run against all of its dependencies using a [Docker
 container](https://www.docker.com/). The container contains all of the database
 servers, tools, and libraries needed, pre-configured to be easily accessed by
-the test suite. The docker is intended to emulate the Travis CI environment as
-closely as possible, so that the full test suite can be run locally before
-committing and pushing.
+the test suite. The same docker image is also used in the Travis CI environment,
+so that we can run the exact same tests locally before committing and pushing.
 
-Docker containers are not mutable: they are restored to their original state
-when they are stopped and restarted. This is a good thing for integration
-tests: the testing environment always begins at a known state.
+A docker image is immutable: if you start running an image and make some
+changes, those changes do not affect the image itself. If you delete your
+container and run the image again, you'll find that all of your changes are
+gone. This is an ideal quality to have for unit tests: tests are always
+executed against the same, pristine state.
 
 To build the docker image, run the following command from the project root:
 
