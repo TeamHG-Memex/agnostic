@@ -50,3 +50,9 @@ Here is an absurdly brief introduction to Agnostic:
 
 For a not-quite-as-quick-but-still-pretty-quick start, please refer to the
 `full documentation <http://agnostic.readthedocs.org/en/latest/index.html>`_.
+
+----
+
+.. image:: https://hyperiongray.s3.amazonaws.com/define-hg.svg
+	:target: https://hyperiongray.com/?pk_campaign=github&pk_kwd=agnostic
+	:alt: define hyperiongray
