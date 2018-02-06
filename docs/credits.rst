@@ -9,3 +9,9 @@ the hassle of managing schemas, and helped me brainstorm to find a better way.
 
 Thanks to all the bad migrations systems I have used (and occasionally wrote
 myself) that taught me *what not to do*.
+
+----
+
+.. image:: https://hyperiongray.s3.amazonaws.com/define-hg.svg
+	:target: https://hyperiongray.com/?pk_campaign=github&pk_kwd=agnostic
+	:alt: define hyperiongray
