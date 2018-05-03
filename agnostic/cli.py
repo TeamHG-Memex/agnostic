@@ -28,7 +28,7 @@ pass_config = click.make_pass_decorator(Config, ensure=True)
     envvar='AGNOSTIC_TYPE',
     metavar='<db_type>',
     required=True,
-    type=click.Choice(['mysql', 'postgres']),
+    type=click.Choice(['mysql', 'postgres', 'snowflake']),
     help='Type of database.'
 )
 @click.option(
@@ -37,7 +37,8 @@ pass_config = click.make_pass_decorator(Config, ensure=True)
     envvar='AGNOSTIC_HOST',
     metavar='<host>',
     required=True,
-    help='Database hostname. (default: localhost)'
+    help='Database hostname. For Snowflake this is the name of the account'
+         ' (default: localhost)'
 )
 @click.option(
     '-p', '--port',

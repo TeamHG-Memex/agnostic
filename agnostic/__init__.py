@@ -102,6 +102,17 @@ def create_backend(db_type, host, port, user, password, database, schema):
                 raise
         return PostgresBackend(host, port, user, password, database, schema)
 
+    elif db_type == 'snowflake':
+        try:
+            from agnostic.snowflake import SnowflakeBackend
+        except ImportError as ie:
+            if ie.name == 'snowflake-connector-python':
+                msg = 'The `snowflake-connector-python` module is required for Snowflake.'
+                raise RuntimeError(msg)
+            else:
+                raise
+        return SnowflakeBackend(host, port, user, password, database, schema)
+
     else:
         raise ValueError('Invalid database type: "{}"'.format(db_type))
 
