@@ -8,6 +8,8 @@ from agnostic import AbstractBackend
 class SnowflakeBackend(AbstractBackend):
     ''' Support for Snowflake. '''
 
+    now_fn = 'CURRENT_TIMESTAMP()'
+
     def connect_db(self):
         ''' Connect to Snowflake. '''
 

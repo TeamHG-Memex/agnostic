@@ -17,8 +17,8 @@ MIGRATION_TABLE_SQL = '''
     CREATE TABLE agnostic_migrations (
         name VARCHAR(255) PRIMARY KEY,
         status VARCHAR(255) NULL DEFAULT NULL,
-        started_at TIMESTAMP NULL DEFAULT NULL,
-        completed_at TIMESTAMP NULL DEFAULT NULL
+        started_at TIMESTAMP WITH TIME ZONE NULL DEFAULT NULL,
+        completed_at TIMESTAMP WITH TIME ZONE NULL DEFAULT NULL
     )
 '''
 
@@ -120,6 +120,8 @@ def create_backend(db_type, host, port, user, password, database, schema):
 class AbstractBackend(metaclass=ABCMeta):
     ''' Base class for Agnostic backends. '''
 
+    now_fn = 'NOW()'
+
     @property
     def location(self):
         location = 'database "{}"'.format(self._database)
@@ -185,7 +187,7 @@ class AbstractBackend(metaclass=ABCMeta):
         Insert a row into the migration table with the 'bootstrapped' status.
         '''
 
-        sql = 'INSERT INTO agnostic_migrations VALUES (%s, %s, NOW(), NOW())'
+        sql = 'INSERT INTO agnostic_migrations VALUES (%%s, %%s, %s, %s)' % (self.__class__.now_fn, self.__class__.now_fn)
         cursor.execute(sql, (migration_name, MigrationStatus.bootstrapped.name))
 
     def create_migrations_table(self, cursor):
@@ -235,8 +237,8 @@ class AbstractBackend(metaclass=ABCMeta):
 
         sql = '''
             INSERT INTO agnostic_migrations (name, status, started_at)
-            VALUES (%s, %s, NOW())
-        '''
+            VALUES (%%s, %%s, %s)
+        ''' % (self.__class__.now_fn,)
 
         cursor.execute(sql, [migration.name, MigrationStatus.failed.name])
 
@@ -248,8 +250,8 @@ class AbstractBackend(metaclass=ABCMeta):
 
         sql = '''
             UPDATE agnostic_migrations
-               SET status = %s, completed_at = NOW()
-             WHERE name = %s
-        '''
+               SET status = %%s, completed_at = %s
+             WHERE name = %%s
+        ''' % (self.__class__.now_fn,)
 
         cursor.execute(sql, [MigrationStatus.succeeded.name, migration.name])
