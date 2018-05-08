@@ -1,3 +1,4 @@
+import os
 import subprocess
 
 import pg8000
@@ -14,7 +15,8 @@ class PostgresBackend(AbstractBackend):
         ``backup_file`` handle.
         '''
 
-        env = {'PGPASSWORD': self._password}
+        env = {'PGPASSWORD': self._password,
+               'PATH': os.environ['PATH']}
 
         command = [
             'pg_dump',
@@ -33,7 +35,8 @@ class PostgresBackend(AbstractBackend):
         command.append(self._database)
 
         process = subprocess.Popen(
-            command,
+            ' '.join(command),
+            shell=True,
             env=env,
             stdout=backup_file,
             stderr=subprocess.PIPE
@@ -105,20 +108,24 @@ class PostgresBackend(AbstractBackend):
         db.autocommit = True
         return db
 
-    def restore_db(self, backup_file):
+    def restore_db(self, backup_file, fail_fast=True):
         '''
         Return a ``Popen`` instance that will restore the database from the
         ``backup_file`` handle.
         '''
 
-        env = {'PGPASSWORD': self._password}
+        env = {'PGPASSWORD': self._password,
+               'PATH': os.environ['PATH']}
 
         command = [
             'psql',
             '-h', self._host,
             '-U', self._user,
-            '-v', 'ON_ERROR_STOP=1', # Fail fast if an error occurs.
         ]
+
+        if fail_fast:
+            command.append('-v')
+            command.append('ON_ERROR_STOP=1')
 
         if self._port is not None:
             command.append('-p')
@@ -127,7 +134,8 @@ class PostgresBackend(AbstractBackend):
         command.append(self._database)
 
         process = subprocess.Popen(
-            command,
+            ' '.join(command),
+            shell=True,
             env=env,
             stdin=backup_file,
             stdout=subprocess.DEVNULL,
@@ -147,7 +155,8 @@ class PostgresBackend(AbstractBackend):
         Return a ``Popen`` instance that writes a snapshot to ``snapshot_file``.
         '''
 
-        env = {'PGPASSWORD': self._password}
+        env = {'PGPASSWORD': self._password,
+               'PATH': os.environ['PATH']}
 
         command = [
             'pg_dump',
@@ -170,7 +179,8 @@ class PostgresBackend(AbstractBackend):
         command.append(self._database)
 
         process = subprocess.Popen(
-            command,
+            ' '.join(command),
+            shell=True,
             env=env,
             stdout=snapshot_file,
             stderr=subprocess.PIPE

@@ -377,6 +377,24 @@ def snapshot(config, outfile):
 
 
 @click.command()
+@click.argument('schemafile', type=click.File('r'))
+@pass_config
+def restore(config, schemafile):
+    '''
+    Take a restore the schema from SCHEMAFILE.
+    '''
+
+    click.echo('Restoring {} from snapshot…'.format(config.backend.location))
+
+    try:
+        _wait_for(config.backend.restore_db(schemafile, False))
+    except Exception as e:
+        raise click.ClickException('Not able to restore: {}'.format(e))
+
+    click.secho('Restored "{}".'.format(config.backend.location), fg='green')
+
+
+@click.command()
 @click.option(
     '-y', '--yes',
     is_flag=True,
@@ -478,6 +496,7 @@ def test(config, yes, current, target):
 main.add_command(bootstrap)
 main.add_command(drop)
 main.add_command(snapshot)
+main.add_command(restore)
 main.add_command(list_)
 main.add_command(test)
 main.add_command(migrate)
@@ -620,7 +639,7 @@ def _wait_for(process):
         msg = 'failed to run external tool "{}" (exit {}):\n{}'
 
         params = (
-            process.args[0],
+            process.args,
             process.returncode,
             process.stderr.read().decode('utf8')
         )
