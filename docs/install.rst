@@ -54,7 +54,7 @@ mysql
     ``mysqldump`` executables.
 
 postgres
-    Requires the ``pg8000`` Python driver and both the ``psql`` and
+    Requires the ``psycopg`` Python driver and both the ``psql`` and
     ``pg_dump`` executables.
 
 Verification

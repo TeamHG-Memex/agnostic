@@ -1,7 +1,7 @@
 import os
 import subprocess
 
-import pg8000
+import psycopg2
 
 from agnostic import AbstractBackend
 
@@ -98,13 +98,13 @@ class PostgresBackend(AbstractBackend):
             'host': self._host,
             'user': self._user,
             'password': self._password,
-            'database': self._database,
+            'dbname': self._database,
         }
 
         if self._port is not None:
             connect_args['port'] = self._port
 
-        db = pg8000.connect(**connect_args)
+        db = psycopg2.connect(**connect_args)
         db.autocommit = True
         return db
 

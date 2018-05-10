@@ -26,7 +26,8 @@ setup(
     ],
     extras_require = {
         'mysql': ['PyMySQL'],
-        'postgres': ['pg8000'],
+        'postgres': ['psycopg2-binary'],
+        'snowflake': ['snowflake-connector-python']
     },
     entry_points='''
         [console_scripts]

@@ -95,8 +95,8 @@ def create_backend(db_type, host, port, user, password, database, schema):
         try:
             from agnostic.postgres import PostgresBackend
         except ImportError as ie:
-            if ie.name == 'pg8000':
-                msg = 'The `pg8000` module is required for Postgres.'
+            if ie.name == 'psycopg':
+                msg = 'The `psycopg` module is required for Postgres.'
                 raise RuntimeError(msg)
             else:
                 raise
