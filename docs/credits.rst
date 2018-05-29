@@ -13,5 +13,5 @@ myself) that taught me *what not to do*.
 ----
 
 .. image:: https://hyperiongray.s3.amazonaws.com/define-hg.svg
-	:target: https://hyperiongray.com/?pk_campaign=github&pk_kwd=agnostic
+	:target: https://www.hyperiongray.com/?pk_campaign=github&pk_kwd=agnostic
 	:alt: define hyperiongray
