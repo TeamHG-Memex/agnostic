@@ -14,7 +14,7 @@ MigrationStatus = Enum(
 # include the `NULL DEFAULT NULL` for nullable fields, even though it might
 # be redundant in ANSI SQL.
 MIGRATION_TABLE_SQL = '''
-    CREATE TABLE agnostic_migrations (
+    CREATE TABLE {schema}agnostic_migrations (
         name VARCHAR(255) PRIMARY KEY,
         status VARCHAR(255) NULL DEFAULT NULL,
         started_at TIMESTAMP WITH TIME ZONE NULL DEFAULT NULL,
@@ -186,28 +186,43 @@ class AbstractBackend(metaclass=ABCMeta):
         '''
         Insert a row into the migration table with the 'bootstrapped' status.
         '''
+        schema = ''
+        if self._schema:
+            schema = self._schema + '.'
 
-        sql = 'INSERT INTO agnostic_migrations VALUES (%%s, %%s, %s, %s)' % (self.__class__.now_fn, self.__class__.now_fn)
+        sql = 'INSERT INTO {schema}agnostic_migrations VALUES (%%s, %%s, %s, %s)'.format(schema=schema) % (self.__class__.now_fn, self.__class__.now_fn)
         cursor.execute(sql, (migration_name, MigrationStatus.bootstrapped.name))
 
     def create_migrations_table(self, cursor):
         ''' Create the migrations table. '''
 
-        cursor.execute(MIGRATION_TABLE_SQL)
+        schema = ''
+        if self._schema:
+            schema = self._schema + '.'
+
+        cursor.execute(MIGRATION_TABLE_SQL.format(schema=schema))
 
     def drop_migrations_table(self, cursor):
         ''' Drop the migrations table. '''
 
-        cursor.execute('DROP TABLE agnostic_migrations')
+        schema = ''
+        if self._schema:
+            schema = self._schema + '.'
+
+        cursor.execute('DROP TABLE {schema}agnostic_migrations'.format(schema=schema))
 
     def get_migration_records(self, cursor):
         ''' Get migrations metadata from the database. '''
 
+        schema = ''
+        if self._schema:
+            schema = self._schema + '.'
+
         query = '''
             SELECT name, status, started_at, completed_at
-              FROM agnostic_migrations
+              FROM {schema}agnostic_migrations
           ORDER BY started_at, name
-        '''
+        '''.format(schema=schema)
 
         cursor.execute(query)
         return [Migration(*row) for row in cursor.fetchall()]
@@ -217,10 +232,14 @@ class AbstractBackend(metaclass=ABCMeta):
         Return True if there are any failed migrations, or False otherwise.
         '''
 
+        schema = ''
+        if self._schema:
+            schema = self._schema + '.'
+
         query = '''
-            SELECT COUNT(*) FROM agnostic_migrations
+            SELECT COUNT(*) FROM {schema}agnostic_migrations
             WHERE status LIKE %s;
-        '''
+        '''.format(schema=schema)
 
         cursor.execute(query, (MigrationStatus.failed.name,))
         return cursor.fetchone()[0] != 0
@@ -235,10 +254,14 @@ class AbstractBackend(metaclass=ABCMeta):
         metadata is updated (in ``migration_succeeded()``) to reflect that.
         '''
 
+        schema = ''
+        if self._schema:
+            schema = self._schema + '.'
+
         sql = '''
-            INSERT INTO agnostic_migrations (name, status, started_at)
+            INSERT INTO {schema}agnostic_migrations (name, status, started_at)
             VALUES (%%s, %%s, %s)
-        ''' % (self.__class__.now_fn,)
+        '''.format(schema=schema) % (self.__class__.now_fn,)
 
         cursor.execute(sql, [migration.name, MigrationStatus.failed.name])
 
@@ -248,10 +271,14 @@ class AbstractBackend(metaclass=ABCMeta):
         finished successfully.
         '''
 
+        schema = ''
+        if self._schema:
+            schema = self._schema + '.'
+
         sql = '''
-            UPDATE agnostic_migrations
+            UPDATE {schema}agnostic_migrations
                SET status = %%s, completed_at = %s
              WHERE name = %%s
-        ''' % (self.__class__.now_fn,)
+        '''.format(schema=schema) % (self.__class__.now_fn,)
 
         cursor.execute(sql, [MigrationStatus.succeeded.name, migration.name])

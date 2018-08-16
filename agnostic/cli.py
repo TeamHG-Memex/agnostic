@@ -468,7 +468,11 @@ def test(config, yes, current, target):
     click.echo('Comparing migrated schema to target schema.')
     temp_snapshot.seek(0)
 
-    ignore = 'INSERT INTO agnostic_migrations'
+    schema = ''
+    if config.backend._schema:
+        schema = config.backend._schema + '.'
+
+    ignore = 'INSERT INTO {schema}agnostic_migrations'.format(schema=schema)
     migrated = [line for line in temp_snapshot if not line.startswith(ignore)]
     targeted = [line for line in target if not line.startswith(ignore)]
 
@@ -581,10 +585,14 @@ def _list_migration_files(migrations_dir, sub_path=''):
 def _migration_insert_sql(config, outfile):
     ''' Write SQL for inserting migration metadata to `outfile`. '''
 
+    schema = ''
+    if config.backend._schema:
+        schema = config.backend._schema + '.'
+
     with _get_db_cursor(config) as (db, cursor):
         insert_sql = (
-            "INSERT INTO agnostic_migrations VALUES "
-            "('{}', '{}', NOW(), NOW());\n"
+            "INSERT INTO {schema}agnostic_migrations VALUES "
+            "('{}', '{}', NOW(), NOW());\n".format(schema=schema)
         )
 
         for migration in config.backend.get_migration_records(cursor):
