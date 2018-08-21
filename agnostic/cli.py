@@ -592,7 +592,7 @@ def _migration_insert_sql(config, outfile):
     with _get_db_cursor(config) as (db, cursor):
         insert_sql = (
             "INSERT INTO {schema}agnostic_migrations VALUES "
-            "('{}', '{}', NOW(), NOW());\n".format(schema=schema)
+            "('{{}}', '{{}}', NOW(), NOW());\n".format(schema=schema)
         )
 
         for migration in config.backend.get_migration_records(cursor):
