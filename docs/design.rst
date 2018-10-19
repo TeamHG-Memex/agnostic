@@ -208,8 +208,8 @@ are some ideas:
    they belong in the same migration script. Try combining them into a single
    SQL script where the statements are re-ordered to solve the dependency.
 2. Re-order the migrations by prefixing the file names with special characters.
-   An at-sign (``@``) sorts to the top, while an underscore (``_``) sorts to the
-   bottom.
+   An exclamation (``!``) sorts to the top, while an at-symbol (``@``) sorts to
+   the bottom.
 3. If you have dozens or hundreds of migration scripts per version, then the
    special character approach may get cumbersome. Try moving the scripts that
    have dependency conflicts on each other into a subdirectory together, and

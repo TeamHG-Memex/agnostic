@@ -514,7 +514,8 @@ def _get_db_cursor(config):
 
 def _get_all_migrations(config, cursor):
     '''
-    A generator that returns all applied and pending migrations.
+    Returns a list of all applied migrations and a list of all pending
+    migrations.
 
     Applied migrations are returned in the order that they were applied.
 
@@ -535,7 +536,7 @@ def _get_all_migrations(config, cursor):
     return applied, pending
 
 
-def _list_migration_files(migrations_dir, sub_path=''):
+def _list_migration_files(migrations_dir):
     '''
     List all of the migration files in the specified directory by name.
 
@@ -544,18 +545,21 @@ def _list_migration_files(migrations_dir, sub_path=''):
     order.
     '''
 
-    migration_prefix_len = len(migrations_dir) + 1
-    current_dir = os.path.join(migrations_dir, sub_path)
+    def helper(sub_path):
+        migration_prefix_len = len(migrations_dir) + 1
+        current_dir = os.path.join(migrations_dir, sub_path)
 
-    for dir_entry in sorted(os.listdir(current_dir), key=str.upper):
-        dir_entry_path = os.path.join(current_dir, dir_entry)
+        for dir_entry in sorted(os.listdir(current_dir), key=str.upper):
+            dir_entry_path = os.path.join(current_dir, dir_entry)
 
-        if os.path.isfile(dir_entry_path) and dir_entry.endswith('.sql'):
-            yield dir_entry_path[migration_prefix_len:-4]
-        elif os.path.isdir(dir_entry_path):
-            new_sub_path = os.path.join(sub_path, dir_entry)
-            yield from _list_migration_files(migrations_dir, new_sub_path)
+            if os.path.isfile(dir_entry_path) and dir_entry.endswith('.sql'):
+                yield dir_entry_path[migration_prefix_len:-4]
+            elif os.path.isdir(dir_entry_path):
+                new_sub_path = os.path.join(sub_path, dir_entry)
+                yield from helper(new_sub_path)
 
+    migrations = list(helper(''))
+    return migrations
 
 def _migration_insert_sql(config, outfile):
     ''' Write SQL for inserting migration metadata to `outfile`. '''
