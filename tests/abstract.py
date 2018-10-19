@@ -375,9 +375,9 @@ class AbstractDatabaseTest(metaclass=ABCMeta):
             self.assertEqual('succeeded', status1)
             self.assertEqual('succeeded', status2)
 
-    def test_migrate_error_if_nothing_pending(self):
+    def test_migrate_no_error_if_nothing_pending(self):
         '''
-        The "migrate" command exits with an error if no migrations are pending.
+        The "migrate" command exits with code 0 if no migrations are pending.
         '''
 
         with self.get_db(self._test_db) as (db, cursor):
@@ -390,7 +390,7 @@ class AbstractDatabaseTest(metaclass=ABCMeta):
         ])
 
         result = self.run_cli(['migrate'], migrations_dir)
-        self.assertNotEqual(0, result.exit_code)
+        self.assertEqual(0, result.exit_code)
 
     def test_snapshot_dumps_structure(self):
         '''

@@ -300,9 +300,8 @@ def migrate(config, backup):
         total = len(pending)
 
         if total == 0:
-            raise click.ClickException(
-                click.style('There are no pending migrations.', fg='red')
-            )
+            click.secho('There are no pending migrations.', fg='red')
+            return
 
     # Make a backup file [optional].
     if backup:
