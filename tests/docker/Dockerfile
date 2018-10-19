@@ -1,15 +1,10 @@
-##############################################################################
-# Keep this file in sync with .travis.yml so that the Docker environment
-# is as similar to Travis CI environment as possible.
-##############################################################################
-
 FROM ubuntu:16.04
 MAINTAINER mehaase@gmail.com
 RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y curl mysql-server postgresql supervisor && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 RUN curl  https://bootstrap.pypa.io/get-pip.py | python3
-RUN pip3 install Click coveralls nose pg8000 PyMySQL sqlparse
+RUN pip3 install agnostic[dev,mysql,postgres]
 COPY supervisor.conf /etc/supervisor/conf.d/agnostic-tests.conf
 RUN mkdir -p /var/log/supervisor
 

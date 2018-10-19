@@ -105,6 +105,14 @@ class PostgresBackend(AbstractBackend):
         db.autocommit = True
         return db
 
+    def get_schema_command(self):
+        ''' Return a command that will set the current schema. '''
+
+        if self._schema is None:
+            return 'SET search_path = "$user",public;\n'
+        else:
+            return 'SET search_path = {};\n'.format(self._schema)
+
     def restore_db(self, backup_file):
         '''
         Return a ``Popen`` instance that will restore the database from the
@@ -135,12 +143,6 @@ class PostgresBackend(AbstractBackend):
         )
 
         return process
-
-    def set_schema(self, cursor):
-        ''' Return a command that will set the current schema. '''
-
-        if self._schema is not None:
-            cursor.execute('SET search_path TO {};\n'.format(self._schema))
 
     def snapshot_db(self, snapshot_file):
         '''

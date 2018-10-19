@@ -357,7 +357,7 @@ def migrate(config, backup):
 @pass_config
 def snapshot(config, outfile):
     '''
-    Take a snapshot of the current schema and write it to OUTFILE.
+    Take a snapshot of the current DB structure and write it to OUTFILE.
 
     Snapshots are used for testing that migrations will produce a schema that
     exactly matches the schema produced by your build system. See the
@@ -497,7 +497,7 @@ def _get_db_cursor(config):
     cursor = db.cursor()
 
     try:
-        config.backend.set_schema(cursor)
+        cursor.execute(config.backend.get_schema_command())
     except Exception as e:
         if config.debug:
             raise
@@ -562,6 +562,7 @@ def _migration_insert_sql(config, outfile):
     ''' Write SQL for inserting migration metadata to `outfile`. '''
 
     with _get_db_cursor(config) as (db, cursor):
+        outfile.write(config.backend.get_schema_command())
         insert_sql = (
             "INSERT INTO agnostic_migrations VALUES "
             "('{}', '{}', NOW(), NOW());\n"

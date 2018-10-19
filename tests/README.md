@@ -59,6 +59,11 @@ means that you can edit the code on your host system, then immediately re-
 execute the tests in the container. You don't need to restart the container or
 anything like that.
 
+If you want to debug a single test, you can run it directly using the following
+form:
+
+    nosetests tests/test_postgres.py:TestPostgreSql.test_snapshot_dumps_schema
+
 To run tests with code coverage, use this alternate form:
 
     python3 -m tests --with-coverage --cover-package agnostic --with-reportclassname -v

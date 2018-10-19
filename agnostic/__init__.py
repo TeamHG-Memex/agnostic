@@ -144,6 +144,10 @@ class AbstractBackend(metaclass=ABCMeta):
         ''' Return a database connection. '''
 
     @abstractmethod
+    def get_schema_command(self):
+        ''' Get a command for setting the current schema. '''
+
+    @abstractmethod
     def restore_db(self, backup_file):
         '''
         Return a ``Popen`` instance that will restore the database from the
@@ -151,10 +155,6 @@ class AbstractBackend(metaclass=ABCMeta):
 
         This should work both for snapshots and backups.
         '''
-
-    @abstractmethod
-    def set_schema(self, cursor):
-        ''' Set the current schema for the specified cursor. '''
 
     @abstractmethod
     def snapshot_db(self, snapshot_file):

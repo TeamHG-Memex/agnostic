@@ -21,12 +21,13 @@ setup(
         'Topic :: Utilities',
     ],
     install_requires=[
-        'Click',
-        'sqlparse',
+        'Click>=7.0,<8.0',
+        'sqlparse>=0.2.4,<0.3.0',
     ],
     extras_require = {
-        'mysql': ['PyMySQL'],
-        'postgres': ['pg8000'],
+        'dev': ['nose>=1.3.7,<1.4.0'],
+        'mysql': ['PyMySQL>=0.9.2,<0.10.0'],
+        'postgres': ['pg8000>=1.12.3,<1.13.0'],
     },
     entry_points='''
         [console_scripts]

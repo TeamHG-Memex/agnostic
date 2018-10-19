@@ -1,6 +1,7 @@
 from abc import ABCMeta, abstractmethod
 from contextlib import contextmanager
 from datetime import datetime, timedelta
+import logging
 import os
 import shutil
 import tempfile
@@ -11,6 +12,9 @@ from click.testing import CliRunner
 
 import agnostic
 import agnostic.cli
+
+
+logging.basicConfig()
 
 
 class AbstractDatabaseTest(metaclass=ABCMeta):
@@ -35,16 +39,13 @@ class AbstractDatabaseTest(metaclass=ABCMeta):
         ''' Constructor. '''
 
         self._migrations_inserted = 0
-
-        host_env = '{}_HOST'.format(self.db_type.upper())
+        db_type = self.db_type.upper()
+        host_env = '{}_HOST'.format(db_type)
+        port_env = '{}_PORT'.format(db_type)
+        test_db_env = '{}_TEST_DB'.format(db_type)
         self._host = os.getenv(host_env, 'localhost')
-
-        port_env = '{}_PORT'.format(self.db_type.upper())
         self._port = os.getenv(port_env, None)
-
-        test_db_env = '{}_TEST_DB'.format(self.db_type.upper())
         self._test_db = os.getenv(test_db_env, 'testdb')
-
         super().__init__(*args, **kwargs)
 
     @abstractmethod
@@ -59,7 +60,7 @@ class AbstractDatabaseTest(metaclass=ABCMeta):
         If ``fixture_name`` is None or ``migration_names`` is None/empty, then
         an empty directory is created.
         '''
-
+        logging.info('Creating migrations fixture: %s', fixture_name)
         tempdir = tempfile.mkdtemp()
 
         if fixture_name is not None and \
@@ -80,7 +81,7 @@ class AbstractDatabaseTest(metaclass=ABCMeta):
 
     def create_migrations_table(self, cursor):
         ''' Create a migrations table. '''
-
+        logging.info('Creating migrations table')
         table_sql = agnostic.MIGRATION_TABLE_SQL
         cursor.execute(table_sql)
 
@@ -103,8 +104,8 @@ class AbstractDatabaseTest(metaclass=ABCMeta):
     @contextmanager
     def get_db(self, database):
         ''' Return a new connection and cursor to a database. '''
-
         user, password = self.get_credentials_from_env()
+        logging.info('Connecting to database "%s" as user "%s"', database, user)
 
         try:
             db = self.connect_db(user, password, database)
@@ -140,17 +141,16 @@ class AbstractDatabaseTest(metaclass=ABCMeta):
 
     def get_snapshot(self):
         ''' Take a snapshot and return as a file path. '''
-
         current_snap_file, current_snap_path = tempfile.mkstemp()
         os.close(current_snap_file)
         result = self.run_cli(['snapshot', current_snap_path])
-
+        logging.info('Created snapshot: %s', current_snap_path)
         return current_snap_path
 
     def insert_migration(self, cursor, name, status,
                          started=None, completed=None):
         ''' Insert a row into the migration table. '''
-
+        logging.info('Inserting migration: %s [%s]', name, status)
         base_date = datetime(year=2016, month=1, day=1)
 
         if started is None:
@@ -168,7 +168,7 @@ class AbstractDatabaseTest(metaclass=ABCMeta):
 
     def run_cli(self, args, migrations_dir=None):
         ''' Run CLI by providing default flags and supplied ``args``. '''
-
+        logging.info('Running CLI with args: %r', args)
         user, password = self.get_credentials_from_env()
 
         command = [
@@ -202,9 +202,9 @@ class AbstractDatabaseTest(metaclass=ABCMeta):
         '''
         Run the specified migration scripts.
 
-        This roughly emulates a schema building tool, e.g. an ORM.
+        This roughly emulates an ORM building tool.
         '''
-
+        logging.info('Simulating ORM build')
         for migration_name in migration_names:
             self.insert_migration(cursor, migration_name, 'bootstrapped')
             migration = self.get_migration(migration_fixture, migration_name)
@@ -212,7 +212,7 @@ class AbstractDatabaseTest(metaclass=ABCMeta):
 
     def setUp(self):
         ''' Create test database. '''
-
+        logging.info('Creating test database')
         with self.get_db(self.default_db) as (db, cursor):
             with warnings.catch_warnings():
                 # Don't show a warning if the database doesn't exist.
@@ -392,9 +392,9 @@ class AbstractDatabaseTest(metaclass=ABCMeta):
         result = self.run_cli(['migrate'], migrations_dir)
         self.assertNotEqual(0, result.exit_code)
 
-    def test_snapshot_dumps_schema(self):
+    def test_snapshot_dumps_structure(self):
         '''
-        The "snapshot" command dumps schema but no data.
+        The "snapshot" command dumps structures but no data.
         '''
 
         with self.get_db(self._test_db) as (db, cursor):
@@ -449,5 +449,5 @@ class AbstractDatabaseTest(metaclass=ABCMeta):
             ['test', '-y', current_snap, target_snap],
             migrations_dir
         )
-
+        print(result.output)
         self.assertEqual(0, result.exit_code)

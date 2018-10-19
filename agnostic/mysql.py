@@ -72,6 +72,11 @@ class MysqlBackend(AbstractBackend):
 
         return pymysql.connect(**connect_args)
 
+    def get_schema_command(self):
+        ''' MySQL does not support schemas: this is a no-op query. '''
+
+        return 'SELECT 1;'
+
     def restore_db(self, backup_file):
         '''
         Return a ``Popen`` instance that will restore the database from the
@@ -101,11 +106,6 @@ class MysqlBackend(AbstractBackend):
         )
 
         return process
-
-    def set_schema(self, cursor):
-        ''' MySQL does not support schemas. '''
-
-        pass
 
     def snapshot_db(self, snapshot_file):
         '''

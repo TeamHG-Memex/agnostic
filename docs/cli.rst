@@ -38,7 +38,8 @@ subcommands:
       drop       Drop the migrations table.
       list       List migrations.
       migrate    Run pending migrations.
-      snapshot   Take a snapshot of the current schema and...
+      snapshot   Take a snapshot of the current DB structure and and write it
+                 to OUTFILE.
       test       Test pending migrations.
 
 The **options** have the following meanings.
