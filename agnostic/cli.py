@@ -28,56 +28,47 @@ pass_config = click.make_pass_decorator(Config, ensure=True)
     envvar='AGNOSTIC_TYPE',
     metavar='<db_type>',
     required=True,
-    type=click.Choice(['mysql', 'postgres']),
+    type=click.Choice(['mysql', 'postgres', 'sqlite']),
     help='Type of database.'
 )
 @click.option(
     '-h', '--host',
-    default='localhost',
     envvar='AGNOSTIC_HOST',
     metavar='<host>',
-    required=True,
-    help='Database hostname. (default: localhost)'
+    help='Database hostname.'
 )
 @click.option(
     '-p', '--port',
     type=int,
     envvar='AGNOSTIC_PORT',
     metavar='<port>',
-    help='Database port #. If omitted, a default port will be selected based'
-         ' on <type>.'
+    help='Database port.'
 )
 @click.option(
     '-u', '--user',
     envvar='AGNOSTIC_USER',
     metavar='<user>',
-    required=True,
     help='Database username.'
 )
 @click.option(
     '--password',
-    default='',
     envvar='AGNOSTIC_PASSWORD',
     metavar='<pass>',
-    required=True,
-    prompt='Database password',
-    hide_input=True,
-    help='Database password. If omitted, the password must be entered on stdin.'
+    help='Database password.'
 )
 @click.option(
     '-d', '--database',
     envvar='AGNOSTIC_DATABASE',
     metavar='<database>',
     required=True,
-    help='Name of database to target.'
+    help='Name of database to operate on.'
 )
 @click.option(
     '-s', '--schema',
     envvar='AGNOSTIC_SCHEMA',
     metavar='<schema>',
-    required=False,
     help='The default schema[s] to use when connecting to the database.'
-         ' (WARNING: EXPERIMENTAL!!!)'
+         ' (PostgreSQL only. WARNING: EXPERIMENTAL!!!)'
 )
 @click.option(
     '-m', '--migrations-dir',
@@ -86,7 +77,7 @@ pass_config = click.make_pass_decorator(Config, ensure=True)
     metavar='<dir>',
     required=True,
     type=click.Path(exists=True),
-    help='Path to migrations directory. (default: ./migrations)'
+    help='Path to migrations directory. (Default: ./migrations)'
 )
 @click.option(
     '-D', '--debug',
@@ -106,7 +97,10 @@ def main(config, db_type, host, port, user, password, database, schema,
         config.backend = create_backend(db_type, host, port, user, password,
                                         database, schema)
     except RuntimeError as re:
-        raise click.ClickException(str(re))
+        if config.debug:
+            raise
+        else:
+            raise click.ClickException(str(re))
 
 
 @click.command()
@@ -367,7 +361,8 @@ def snapshot(config, outfile):
 
     try:
         _wait_for(config.backend.snapshot_db(outfile))
-        _migration_insert_sql(config, outfile)
+        with _get_db_cursor(config) as (db, cursor):
+            config.backend.write_migration_inserts(cursor, outfile)
     except Exception as e:
         raise click.ClickException('Not able to create snapshot: {}'.format(e))
 
@@ -442,7 +437,8 @@ def test(config, yes, current, target):
     # Dump the migrated schema to the temp file.
     click.echo('Snapshotting the migrated database.')
     _wait_for(config.backend.snapshot_db(temp_snapshot))
-    _migration_insert_sql(config, temp_snapshot)
+    with _get_db_cursor(config) as (db, cursor):
+        config.backend.write_migration_inserts(cursor, temp_snapshot)
 
     # Compare the migrated schema to the target schema.
     click.echo('Comparing migrated schema to target schema.')
@@ -560,20 +556,6 @@ def _list_migration_files(migrations_dir):
 
     migrations = list(helper(''))
     return migrations
-
-def _migration_insert_sql(config, outfile):
-    ''' Write SQL for inserting migration metadata to `outfile`. '''
-
-    with _get_db_cursor(config) as (db, cursor):
-        outfile.write(config.backend.get_schema_command())
-        insert_sql = (
-            "INSERT INTO agnostic_migrations VALUES "
-            "('{}', '{}', NOW(), NOW());\n"
-        )
-
-        for migration in config.backend.get_migration_records(cursor):
-            args = migration.name, MigrationStatus.succeeded.name
-            outfile.write(insert_sql.format(*args))
 
 
 def _run_migrations(config, cursor, migrations):

@@ -1,6 +1,7 @@
 from abc import ABCMeta, abstractmethod
 from datetime import datetime
 from enum import Enum
+from getpass import getpass
 
 
 MigrationStatus = Enum(
@@ -26,8 +27,6 @@ MIGRATION_TABLE_SQL = '''
 class Migration():
     ''' Data model for migration metadata. '''
 
-    SQL_DATE_FORMAT = '%Y-%m-%d %H:%M:%S.%f'
-
     def __init__(self, name, status, started_at=None, completed_at=None):
         '''
         Constructor.
@@ -47,19 +46,24 @@ class Migration():
             msg = '`status` must be an instance of str or MigrationStatus.'
             raise ValueError(msg)
 
-        def parse_date(name, date):
-            if date is None:
-                return None
-            elif isinstance(date, datetime):
-                return date
-            elif isinstance(date, str):
-                return datetime.strptime(date, Migration.SQL_DATE_FORMAT)
-            else:
-                msg = '`{}` must be None or an instance of str or datetime.'
-                raise ValueError(msg.format(name))
+        self.started_at = self.parse_datetime(started_at)
+        self.completed_at = self.parse_datetime(completed_at)
 
-        self.started_at = parse_date('started_at', started_at)
-        self.completed_at = parse_date('completed_at', completed_at)
+    def parse_datetime(self, dt):
+        if dt is None:
+            return None
+        elif isinstance(dt, datetime):
+            return dt
+        elif isinstance(dt, str):
+            try:
+                # ISO SQL date:
+                return datetime.strptime(dt, '%Y-%m-%d %H:%M:%S.%f')
+            except:
+                # Try again without fractional seconds:
+                return datetime.strptime(dt, '%Y-%m-%d %H:%M:%S')
+        else:
+            msg = '`{}` must be None or an instance of str or datetime.'
+            raise ValueError(msg.format(name))
 
     def to_sql(self):
         ''' Serialize this migration metadata to a tuple of SQL strings. '''
@@ -76,22 +80,33 @@ def create_backend(db_type, host, port, user, password, database, schema):
     '''
     Return a new backend instance.
     '''
+    def askpass():
+        return getpass('Password for {}:'.format(user))
 
     if db_type == 'mysql':
         if schema is not None:
             raise RuntimeError('MySQL does not support schemas.')
-
+        if user is None or database is None:
+            raise RuntimeError('MySQL requires user and database arguments.')
+        host = host or 'localhost'
+        if password is None:
+            password = askpass()
         try:
             from agnostic.mysql import MysqlBackend
         except ImportError as ie:
             if ie.name == 'pymysql':
-                msg = 'The `pymysql` module is required for MySQL.'
-                raise RuntimeError(msg)
+                raise RuntimeError('The `pymysql` module is required for '
+                    'MySQL.')
             else:
                 raise
         return MysqlBackend(host, port, user, password, database, schema)
 
     elif db_type == 'postgres':
+        if user is None or database is None:
+            raise RuntimeError('PostgreSQL requires user and database '
+                'arguments.')
+        host = host or 'localhost'
+        password = password or askpass()
         try:
             from agnostic.postgres import PostgresBackend
         except ImportError as ie:
@@ -101,6 +116,16 @@ def create_backend(db_type, host, port, user, password, database, schema):
             else:
                 raise
         return PostgresBackend(host, port, user, password, database, schema)
+
+    elif db_type == 'sqlite':
+        if (host is not None or port is not None or user is not None or
+            password is not None or schema is not None):
+            raise RuntimeError('SQLite does not allow host, port, user, '
+                'password, or schema arguments.')
+        if database is None:
+            raise RuntimeError('SQLite requires a database argument.')
+        from agnostic.sqlite import SqlLiteBackend
+        return SqlLiteBackend(host, port, user, password, database, schema)
 
     else:
         raise ValueError('Invalid database type: "{}"'.format(db_type))
@@ -121,6 +146,8 @@ class AbstractBackend(metaclass=ABCMeta):
     def __init__(self, host, port, user, password, database, schema):
         ''' Constructor. '''
 
+        self._param = '%%s'
+        self._now_fn = 'NOW()'
         self._host = host
         self._port = port
         self._user = user
@@ -174,7 +201,8 @@ class AbstractBackend(metaclass=ABCMeta):
         Insert a row into the migration table with the 'bootstrapped' status.
         '''
 
-        sql = 'INSERT INTO agnostic_migrations VALUES (%s, %s, NOW(), NOW())'
+        sql = 'INSERT INTO agnostic_migrations VALUES ({}, {}, {}, {})'.format(
+            self._param, self._param, self._now_fn, self._now_fn)
         cursor.execute(sql, (migration_name, MigrationStatus.bootstrapped.name))
 
     def create_migrations_table(self, cursor):
@@ -199,6 +227,12 @@ class AbstractBackend(metaclass=ABCMeta):
         cursor.execute(query)
         return [Migration(*row) for row in cursor.fetchall()]
 
+    def get_schema_command(self):
+        ''' Return a command that will set schema. This is a no-op by default
+        because most backends don't support schemas. '''
+
+        return 'SELECT 1;\n'
+
     def has_failed_migrations(self, cursor):
         '''
         Return True if there are any failed migrations, or False otherwise.
@@ -206,8 +240,8 @@ class AbstractBackend(metaclass=ABCMeta):
 
         query = '''
             SELECT COUNT(*) FROM agnostic_migrations
-            WHERE status LIKE %s;
-        '''
+            WHERE status LIKE {};
+        '''.format(self._param)
 
         cursor.execute(query, (MigrationStatus.failed.name,))
         return cursor.fetchone()[0] != 0
@@ -224,8 +258,8 @@ class AbstractBackend(metaclass=ABCMeta):
 
         sql = '''
             INSERT INTO agnostic_migrations (name, status, started_at)
-            VALUES (%s, %s, NOW())
-        '''
+            VALUES ({}, {}, {})
+        '''.format(self._param, self._param, self._now_fn)
 
         cursor.execute(sql, [migration.name, MigrationStatus.failed.name])
 
@@ -237,8 +271,21 @@ class AbstractBackend(metaclass=ABCMeta):
 
         sql = '''
             UPDATE agnostic_migrations
-               SET status = %s, completed_at = NOW()
-             WHERE name = %s
-        '''
+               SET status = {}, completed_at = {}
+             WHERE name = {}
+        '''.format(self._param, self._now_fn, self._param)
 
         cursor.execute(sql, [MigrationStatus.succeeded.name, migration.name])
+
+    def write_migration_inserts(self, cursor, outfile):
+        ''' Write SQL for inserting migration metadata to `outfile`. '''
+
+        outfile.write(self.get_schema_command())
+        insert_sql = (
+            "INSERT INTO agnostic_migrations VALUES "
+            "('{}', '{}', {}, {});\n"
+        )
+
+        for migration in self.get_migration_records(cursor):
+            outfile.write(insert_sql.format(migration.name,
+                MigrationStatus.succeeded.name, self._now_fn, self._now_fn))
