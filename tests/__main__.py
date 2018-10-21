@@ -8,8 +8,6 @@ each test, which is helpful in this project because we have several test classes
 that contain identically named test methods.
 '''
 
-import os, sys
-
 import nose
 import nose.plugins
 

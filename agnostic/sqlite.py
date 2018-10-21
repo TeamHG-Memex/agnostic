@@ -39,6 +39,7 @@ class SqlLiteBackend(AbstractBackend):
     def connect_db(self):
         ''' Connect to PostgreSQL. '''
         db = sqlite3.connect(self._database)
+        db.isolation_level = None # Equivalent to autocommit
         return db
 
     def restore_db(self, backup_file):

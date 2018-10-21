@@ -146,7 +146,7 @@ class AbstractBackend(metaclass=ABCMeta):
     def __init__(self, host, port, user, password, database, schema):
         ''' Constructor. '''
 
-        self._param = '%%s'
+        self._param = '%s'
         self._now_fn = 'NOW()'
         self._host = host
         self._port = port
@@ -200,9 +200,10 @@ class AbstractBackend(metaclass=ABCMeta):
         '''
         Insert a row into the migration table with the 'bootstrapped' status.
         '''
-
+        print('BOOTSTRAP {}'.format(migration_name))
         sql = 'INSERT INTO agnostic_migrations VALUES ({}, {}, {}, {})'.format(
             self._param, self._param, self._now_fn, self._now_fn)
+        print(sql)
         cursor.execute(sql, (migration_name, MigrationStatus.bootstrapped.name))
 
     def create_migrations_table(self, cursor):

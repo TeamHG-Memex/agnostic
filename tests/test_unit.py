@@ -1,4 +1,3 @@
-from datetime import datetime, timedelta
 import logging
 import os
 import shutil
@@ -12,7 +11,7 @@ import agnostic.cli
 logging.basicConfig()
 
 
-class TestUnits(unittest.TestCase):
+class TestUnit(unittest.TestCase):
     ''' Unit tests for Agnostic '''
 
     def touch_file(self, name):
@@ -22,7 +21,6 @@ class TestUnits(unittest.TestCase):
     def test_list_migrations(self):
         ''' Migrations should be listed in order. '''
         tempdir = tempfile.mkdtemp(dir='/tmp')
-        logging.info('list_migrations %r', tempdir)
         os.mkdir(tempdir + '/01')
         os.mkdir(tempdir + '/02')
         self.touch_file(tempdir + '/01/2_more_stuff.sql')

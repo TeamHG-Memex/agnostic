@@ -1,5 +1,5 @@
 /*
- * Rename the existing phone field and add cell_phone field.
+ * Rename the phone field to phone_cell.
  *
  * This intentionally conflicts with 2_rename_phone_to_home.sql!
  */

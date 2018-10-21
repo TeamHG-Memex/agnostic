@@ -39,6 +39,7 @@ class AbstractDatabaseTest(metaclass=ABCMeta):
         ''' Constructor. '''
 
         self._migrations_inserted = 0
+        self._param = '%s'
         db_type = self.db_type.upper()
         host_env = '{}_HOST'.format(db_type)
         port_env = '{}_PORT'.format(db_type)
@@ -124,6 +125,24 @@ class AbstractDatabaseTest(metaclass=ABCMeta):
             except:
                 pass
 
+    def get_base_command(self):
+        ''' Get command line base options. '''
+        user, password = self.get_credentials_from_env()
+
+        command = [
+            '-t', self.db_type,
+            '-h', self._host,
+            '-u', user,
+            '--password', password,
+            '-d', self._test_db,
+        ]
+
+        if self._port is not None:
+            command.append('-p')
+            command.append(self._port)
+
+        return command
+
     def get_migration(self, fixture_name, migration_name):
         ''' Get the text of a migration script. '''
 
@@ -161,24 +180,17 @@ class AbstractDatabaseTest(metaclass=ABCMeta):
         if completed is None:
             completed = started + timedelta(seconds=59)
 
-        cursor.execute(
-            "INSERT INTO agnostic_migrations VALUES (%s, %s, %s, %s)",
-            (name, status, started, completed)
-        )
+        query = 'INSERT INTO agnostic_migrations VALUES ({}, {}, {}, {})' \
+            .format(self._param, self._param, self._param, self._param)
+        cursor.execute(query, (name, status, started, completed))
 
     def run_cli(self, args, migrations_dir=None):
         ''' Run CLI by providing default flags and supplied ``args``. '''
         logging.info('Running CLI with args: %r', args)
-        user, password = self.get_credentials_from_env()
-
-        command = [
-            '-t', self.db_type,
-            '-h', self._host,
-            '-u', user,
-            '--password', password,
-            '-d', self._test_db,
+        command = self.get_base_command()
+        command.extend([
             '-m', migrations_dir or self.create_migrations_dir(),
-        ]
+        ])
 
         if self._port is not None:
             command.append('-p')
@@ -190,10 +202,10 @@ class AbstractDatabaseTest(metaclass=ABCMeta):
 
         if result.exception is not None and \
            not isinstance(result.exception, SystemExit):
-            print('== run_cli exception ==')
-            print('COMMAND: {}'.format(command))
-            print('EXIT CODE: {}'.format(result.exit_code))
-            print('OUTPUT:\n{}'.format(result.output))
+            logging.error('== run_cli exception ==')
+            logging.error('COMMAND: %s', command)
+            logging.error('EXIT CODE: %s', result.exit_code)
+            logging.error('OUTPUT:\n%s', result.output)
             raise result.exception
 
         return result
@@ -449,5 +461,5 @@ class AbstractDatabaseTest(metaclass=ABCMeta):
             ['test', '-y', current_snap, target_snap],
             migrations_dir
         )
-        print(result.output)
+
         self.assertEqual(0, result.exit_code)

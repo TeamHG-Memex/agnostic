@@ -1,7 +1,7 @@
 FROM ubuntu:16.04
 MAINTAINER mehaase@gmail.com
 RUN apt-get update && \
-    DEBIAN_FRONTEND=noninteractive apt-get install -y curl mysql-server postgresql supervisor && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y curl mysql-server postgresql sqlite3 supervisor && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 RUN curl  https://bootstrap.pypa.io/get-pip.py | python3
 RUN pip3 install agnostic[dev,mysql,postgres]
