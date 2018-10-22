@@ -71,6 +71,11 @@ To run tests with code coverage, use this alternate form:
 When you are done, you can exit from Docker by typing `Ctrl+C` in the shell
 from which you ran `docker run`.
 
+## Documentation
+
+Documentation can also be built inside the Docker container. Go into the `/docs`
+directory and run `make html`. The documentation is written to `/docs/_build`.
+
 ## Travis CI && Coveralls
 
 Tests for this project run automatically on [Travis

@@ -14,40 +14,18 @@ The easiest way to install Agnostic is from PyPI.
     to run in the Python 3 interpreter.
 
 Agnostic requires a specific driver for each database you want to use it with,
-so *choose one of the following forms* to install Agnostic with the correct
-drivers.
+**so choose one of the following forms to install Agnostic with the correct
+drivers.**
 
 .. code:: bash
 
-    ~ $ pip install agnostic[mysql]
-    ~ $ pip install agnostic[postgres]
+    ~ $ pip3 install agnostic[mysql]
+    ~ $ pip3 install agnostic[postgres]
+    ~ $ pip3 install agnostic[sqlite]
 
-Agnostic also requires some database command line tools for making snapshots and backups. See `Dependencies`_ below.
-
-Install From Source
--------------------
-
-Agnostic is also easy to install from source, in case you want to install a pre-
-release version. `Clone it from Github <https://github.com/TeamHG-
-Memex/agnostic>`_ or `download a ZIP file <https://github.com/TeamHG-
-Memex/agnostic/archive/master.zip>`_. Once you have it cloned or unzipped, just
-run the ``setup.py``.
-
-.. note::
-
-    Make sure to use Python 3, not Python 2. See notice in previous section.
-
-.. code:: bash
-
-    ~ $ cd agnostic
-    ~/agnostic $ python setup.py install
-
-Dependencies
-------------
-
-Agnostic expects some database drivers and tools to be present in order to make
-snapshots and backups. You only need to install dependencies for the database
-that you're using.
+Agnostic expects some database tools to be present in order to make snapshots
+and backups. You only need to install dependencies for the database that you're
+using.
 
 mysql
     Requires the ``PyMySQL`` Python driver and both the ``mysql`` and
@@ -57,13 +35,45 @@ postgres
     Requires the ``pg8000`` Python driver and both the ``psql`` and
     ``pg_dump`` executables.
 
+sqlite3
+    Requires the ``sqlite3`` executable.
+
+
+Install From Source
+-------------------
+
+Agnostic is also easy to install from source, in case you want to install a pre-
+release version. You can clone the repo or download a Zip file from `the
+project's repository <https://github.com/TeamHG- Memex/agnostic>`_. Once you
+have it cloned or unzipped, run the ``setup.py`` script.
+
+.. note::
+
+    Make sure to use Python 3, not Python 2. See notice in previous section.
+
+Go into the Agnostic directory **and then install using one of the following
+forms.**
+
+.. code:: bash
+
+    ~ $ cd agnostic
+    ~/agnostic $ pip3 install .[mysql]
+    ~/agnostic $ pip3 install .[postgres]
+    ~/agnostic $ pip3 install .[sqlite]
+
+Make sure to review the dependencies in the "Install from PyPI" section above.
+
 Verification
 ------------
 
-You can verify that Agnostic is installed correctly by running it. (Your version
-number may not match the version shown here. That's OK.)
+You can verify that Agnostic is installed by running the following command.
+(Your version number may not match the version shown here. That's OK.)
 
 .. code:: bash
 
     ~ $ agnostic --version
     agnostic, version 1.0
+
+This command does not check your dependencies, so you may still find that
+Agnostic does not work when you start trying to interact with your database. In
+that case, review the dependency information in the previous sections again.

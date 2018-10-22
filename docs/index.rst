@@ -1,7 +1,9 @@
 Agnostic Database Migrations
 ============================
 
-Contents:
+Agnostic is a database migrations system that is agnostic to programming
+language, framework, and database system. It supports MySQL, PostgreSQL, and
+SQLite.
 
 .. toctree::
    :maxdepth: 2
@@ -12,12 +14,3 @@ Contents:
    design
    workflow
    credits
-
-
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
-

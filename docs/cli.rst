@@ -4,30 +4,29 @@ Command Line
 Global Options
 --------------
 
-The command line interface is built around a set of subcommands. Each of these
-subcommands supports a number of global options. To list the global options and
-subcommands:
+The command line interface is built around a set of subcommands. A global set of
+options applies to all subcommands, such as database type, username, hostname,
+etc. Each subcommand may also have its own arguments and options. You can view
+built-in help with the ``--help`` flag.
 
 .. code:: bash
 
-    ~ $ agnostic
+    $ agnostic -h
     Usage: agnostic [OPTIONS] COMMAND [ARGS]...
 
-      Agnostic database migrations: upgrade schemas, keep your sanity.
+      Agnostic database migrations: upgrade schemas, save your sanity.
 
     Options:
-      -t, --type <type>           Type of database.  [required]
-      -h, --host <host>           Database hostname. (default: localhost)
-                                  [required]
-      -p, --port <port>           Database port #. If omitted, a default port will
-                                  be selected based on <type>.
-      -u, --user <user>           Database username.  [required]
-      --password <pass>           Database password. If omitted, the password must
-                                  be entered on stdin.  [required]
-      -d, --database <database>   Name of database to target.  [required]
-      -s, --schema <schema>       The default schema to use when connecting to the
-                                  database.
-      -m, --migrations-dir <dir>  Path to migrations directory. (default:
+      -t, --db-type <type>        Type of database.  [required]
+      -h, --host <host>           Database hostname.
+      -p, --port <port>           Database port.
+      -u, --user <user>           Database username.
+      --password <pass>           Database password.
+      -d, --database <database>   Name of database to operate on.  [required]
+      -s, --schema <schema>       The default schema[s] to use when connecting to
+                                  the database. (PostgreSQL only. WARNING:
+                                  EXPERIMENTAL!!!)
+      -m, --migrations-dir <dir>  Path to migrations directory. (Default:
                                   ./migrations)  [required]
       -D, --debug                 Display stack traces when exceptions occur.
       --version                   Show the version and exit.
@@ -38,48 +37,58 @@ subcommands:
       drop       Drop the migrations table.
       list       List migrations.
       migrate    Run pending migrations.
-      snapshot   Take a snapshot of the current DB structure and and write it
-                 to OUTFILE.
+      snapshot   Take a snapshot of the current DB structure and write it to...
       test       Test pending migrations.
 
-The **options** have the following meanings.
+Most options may either be passed on the command line or exported in the
+environment. Each database type treats these options differently.
 
-type
-    **(Required)** The type of database that Agnostic is connecting to, either
-    ``mysql`` or ``postgres``. May be specified as ``AGNOSTIC_TYPE`` environment
-    variable instead.
-host
-    **(Optional)** Hostname or IP address of database server. It defaults to
-    ``localhost``. Agnostic uses TCP/IP connections only, never file socket
-    connections. May be specified as ``AGNOSTIC_HOST`` environment variable
-    instead.
-port
-    **(Optional)** The TCP port number that the database server is listening on.
-    If omitted, this is assumed to be the default port associated with this
-    <type> of database. May be specified as ``AGNOSTIC_PORT`` environment
-    variable instead.
-user
-    **(Required)** The username to connect to the database as. This user should
-    have all privileges, including the right to run any DDL statement or any DDL
-    statement. May be specified as ``AGNOSTIC_USER`` environment variable
-    instead.
-password
-    **(Required)** The password associated with the user. If omitted, you will
-    be prompted to type the password on ``stdin``. May be specified as
-    ``AGNOSTIC_PASSWORD`` environment variable instead. (See warning below.)
-database
-    **(Required)** The name of the database that is being managed by Agnostic.
-    May be specified as ``AGNOSTIC_DATABASE`` environment variable instead.
-schema
-    **(Optional)** The schema to run all commands inside of. For Postgres, this
-    is equivalent to ``SET search_path TO ...``, and a comma-separated list of
-    schemas is allowed. MySQL does not support schemas.
-migrations-dir
-    **(Optional)** Path to the directory that contains migration scripts. If
-    not specified, it defaults to ``migrations`` in the current working
-    directory. May be specified as ``AGNOSTIC_MIGRATIONS_DIR`` instead.
-debug
-    Display stack traces when exceptions occur.
+.. list-table::
+    :header-rows: 1
+    :stub-columns: 1
+
+    * - Option
+      - MySQL
+      - PostgreSQL
+      - SQLite
+    * - ``-t`` ``--db-type`` ``$AGNOSTIC_TYPE``
+      - Required ``mysql``
+      - Required ``postgres``
+      - Required ``sqlite``
+    * - ``-h`` ``--host`` ``$AGNOSTIC_HOST``
+      - Default ``localhost``
+      - Default ``localhost``
+      - N/A
+    * - ``-p`` ``--port`` ``$AGNOSTIC_PORT``
+      - Default ``3306``
+      - Default ``5342``
+      - N/A
+    * - ``-u`` ``--user`` ``$AGNOSTIC_USER``
+      - Required
+      - Required
+      - N/A
+    * - ``--password`` ``$AGNOSTIC_PASSWORD``
+      - Required
+      - Required
+      - N/A
+    * - ``-d`` ``--database`` ``$AGNOSTIC_DATABASE``
+      - Required
+      - Required
+      - Required [1]_
+    * - ``-s`` ``--schema`` ``$AGNOSTIC_SCHEMA``
+      - N/A
+      - Default ``"$user",public`` [2]_
+      - N/A
+    * - ``-m`` ``--migrations-dir`` ``$AGNOSTIC_MIGRATIONS_DIR``
+      - Default ``migrations``
+      - Default ``migrations``
+      - Default ``migrations``
+
+**Notes on options:**
+
+.. [1] In SQLite, the "database" option is the path to the database file.
+.. [2] "Schema" support for PostgreSQL is considered *experimental*. Please
+       provide feedback if you use this feature and like/dislike it.
 
 .. warning::
 
@@ -90,8 +99,9 @@ debug
     shell history and in the system-wide process list.
 
     We recommend that you type the password. Alternatively, export the
-    ``AGNOSTIC_PASSWORD`` variable in your environment, but be wary of storing
-    this password on disk in a world-readable ``.profile`` or ``.bashrc``.
+    ``AGNOSTIC_PASSWORD`` variable in your environment, but be wary of the
+    security implications of storing this value in the environment or in a
+    world-readable ``.profile`` or ``.bashrc``.
 
 (Lack Of) Configuration
 -----------------------
@@ -250,7 +260,6 @@ Run all pending migrations in the pre-determined order. See
 :ref:running_migrations for more details on this process.
 
 backup
-
     By default, Agnostic backs up your schema. In the event of a migrations
     failure, Agnostic will try to restore from this backup. You can disable this
     behavior, if desired.
@@ -303,6 +312,12 @@ test
       -y, --yes  Do not display warning: assume "yes".
       --help     Show this message and exit.
 
+current
+    A snapshot of the database before the most recent changes.
+
+target
+    A snapshot of the database after the most recent changes.
+
 The ``test`` command verifies that a set of migrations will run without error
-and will also precisely produce the desired target schema. See
-:ref:test_migrations for more details.
+and will also precisely produce the desired target schema. See `Write & Test
+Migrations <workflow.html#write-test-migrations>`__ for more details.

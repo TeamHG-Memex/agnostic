@@ -6,7 +6,7 @@ Agnostic Database Migrations is a database migration tool that is agnostic to:
 * database system
 * programming language
 * object/relational mapper (ORMs)
-* schema build system
+* build system
 * merging source code branches
 * workflow
 
@@ -21,7 +21,7 @@ Quick Start
 Ok, Mr. or Mrs. Impatient, you don't want to read 14 pages of dry, technical
 documentation. You just want to see what it can do, right?
 
-We'll assume that you already have a running application that uses a schema
+We will assume that you already have a running application that uses a database
 named ``myapp``. This application has a single table called ``customer``:
 
 .. code:: sql
@@ -36,10 +36,11 @@ named ``myapp``. This application has a single table called ``customer``:
 
     One of the beautiful features of Agnostic is that doesn't care how you got
     to this point, or what tools you use to build your database. You can build
-    your schema with a SQL script, an ORM, or even the butterfly effect.
+    your database with a SQL script, an ORM, or even the butterfly effect.
     Agnostic won't get jealous.
 
-Now your customers are demanding a few features, and these new features require changes to the existing schema:
+Now your customers are demanding a few features, and these new features require
+changes to the existing database structure:
 
 1. Add a ``cell_phone`` column.
 2. Add a ``nickname`` column.
@@ -48,7 +49,7 @@ Now your customers are demanding a few features, and these new features require 
 
 **First, create a directory to hold the migrations.** We will name the directory
 ``migrations``. (You could name it something else, but that would take a few
-extra minutes to explain, and that wouldn't make for a "quick" start would it?)
+extra minutes to explain, and this wouldn't be a "quick" start.)
 
 .. code:: bash
 
@@ -78,8 +79,8 @@ database to hold metadata about migrations.
 .. code:: bash
 
     ~/myapp $ agnostic -t postgres -u myuser -d mydb migrate
-    Backing up schema "myapp" to "/tmp/tmprhty1nc7".
-    About to run 2 migrations in schema "myapp":
+    Backing up database "myapp" to "/tmp/tmprhty1nc7".
+    About to run 2 migrations in database "myapp":
      * Running migration add_cell_phone (1/2)
      * Running migration add_nickname (2/2)
     Migration failed because:
@@ -92,17 +93,15 @@ database to hold metadata about migrations.
     Restored from backup.
     Aborted!
 
-**Ruh roh!** The first migration ran fine, but it looks like the second migration
-has a typo: ``VARCHR`` instead of ``VARCHAR``.
-
-Luckily, Agnostic automatically backs up your database before running
-migrations. In the event of a failure, it automatically restores from that
-backup so that you don't get stuck in an in-between state.
+**Ruh roh!** The first migration ran fine, but it looks like the second
+migration has a typo: ``VARCHR`` instead of ``VARCHAR``. Luckily, Agnostic
+automatically backs up your database before running migrations. In the event of
+a failure, it automatically restores from that backup so that you don't get
+stuck in an in-between state.
 
 .. note::
 
-    When working with a database that supports transactional DDL, you can
-    disable Agnostic's automatic backup/restore behavior with the
+    You can disable Agnostic's automatic backup/restore behavior with the
     ``--no-backup`` flag.
 
 Let's fix the typo and run it again.
@@ -113,8 +112,8 @@ Let's fix the typo and run it again.
     ALTER TABLE customer ADD nickname VARCHAR(255);
 
     ~/myapp $ agnostic -t postgres -u myuser -d mydb migrate
-    Backing up schema "myapp" to "/tmp/tmpm8glpgaa".
-    About to run 2 migrations in schema "myapp":
+    Backing up database "myapp" to "/tmp/tmpm8glpgaa".
+    About to run 2 migrations in database "myapp":
      * Running migration add_cell_phone (1/2)
      * Running migration add_nickname (2/2)
     Migrations completed successfully.
@@ -139,8 +138,8 @@ migrations.
     drop_nickname  | pending   | N/A                 | N/A
 
     ~/myapp $ agnostic -t postgres -u myuser -d mydb migrate
-    Backing up schema "myapp" to "/tmp/tmpiq5fhnh6".
-    About to run 1 migration in schema "myapp":
+    Backing up database "myapp" to "/tmp/tmpiq5fhnh6".
+    About to run 1 migration in database "myapp":
      * Running migration drop_nickname (1/1)
     Migrations completed successfully.
     Removing backup "/tmp/tmpiq5fhnh6".
@@ -155,10 +154,11 @@ may be wondering what exactly is meant by "agnostic database migrations".
 
 When you develop and deploy an application that is backed up by a relational
 database, you will eventually need to deploy a new version of that application
-that expects a slightly different, improved schema. In most production use
-cases, it's not acceptable to just drop the database and rebuild it. Instead,
-you must modify the existing database to match what the application expects, and
-you need to do so without corrupting or destroying any of your production data.
+that expects a slightly different, improved database structure. In most
+production use cases, it's not acceptable to just drop the database and rebuild
+it. Instead, you must modify the existing database to match what the application
+expects, and you need to do so without corrupting or destroying any of your
+production data.
 
 On small projects, you might be able to handle this process manually: you write
 a SQL script for each new release and then you run that script whenever you need
@@ -166,10 +166,10 @@ to deploy an upgraded version.
 
 On large projects, however, you'll find that it quickly grows to be a bigger
 problem that you can reasonably manage. It becomes very difficult to ensure that
-all of your environments have exactly the same schema; the bugs that arise from
-having slightly different schemas in different places (imagine a missing foreign
-key constraint) cause corrupted data to build up slowly over time and eventually
-turn into a nightmarish debugging scenario.
+all of your environments have exactly the same database structure; the bugs that
+arise from having slightly different database structures in different places
+(imagine a missing foreign key constraint) cause corrupted data to build up
+slowly over time and eventually turn into a nightmarish debugging scenario.
 
 Alternatives
 ------------
@@ -188,10 +188,10 @@ There are a lot of options for database migrations:
 
 *Why are there so many different migration tools?*
 
-The main reason that there are so many tools is that — for some strange reason —
-the developers think that each programming language and/or ORM needs its own
-separate migration tool. These solutions are simultaneously over-engineered and
-too restrictive.
+The main reason that there are so many tools is that—for some strange reason—the
+developers think that each programming language or ORM needs its own separate
+migration tool. These solutions are simultaneously over-engineered and too
+restrictive.
 
 Consider the `Alembic tutorial
 <https://alembic.readthedocs.org/en/latest/tutorial.html>`_ as an example:
@@ -212,26 +212,23 @@ Consider the `Alembic tutorial
    downgrade().)*
 
 As if you didn't have already have enough complex things to learn, memorize, and
-operate, these migration systems expect you read 100 pages of documentation just
-so you can manage migrations. Hopefully you're not thinking about using a
-different ORM or programming language on your next project — you'll have to
-learn a whole new migrations system, too!
+operate, these migration systems expect you to read 100 pages of documentation
+just so you can manage migrations. Hopefully you're not thinking about using a
+different ORM or programming language on your next project—you'll have to learn
+a whole new migrations system, too!
 
 **In contrast, consider Agnostic:**
 
+* Open source.
 * Lightweight.
-* Migrations written in pure SQL.
-* No configuration files.
-* Don't have to generate scaffolding.
-* Simple enough to completely understand how it works.
-* Flexible enough to fit a lot of different workflows.
 * Not tied to a specific programming lanuage.
 * Not tied to a specific ORM.
-* Not tied to a specific database.
+* Not tied to a specific database system.
+* Migrations written in pure SQL.
+* No configuration files.
 * High automated test coverage.
-* Open source.
 
-Agnostic is the last migrations system you'll ever learn.
+Agnostic is a migrations system you can use on all of your projects.
 
 License
 -------

@@ -186,9 +186,10 @@ class AbstractBackend(metaclass=ABCMeta):
         '''
         Return a ``Popen`` instance that writes a snapshot to ``outfile``.
 
-        The snapshot must contain just the schema (i.e. no data), produced in a
-        deterministic way such that the same schema dumped on a different host
-        or at a different time would produce a byte-for-byte identical snapshot.
+        The snapshot must contain just the database structure (i.e. no data),
+        produced in a deterministic way such that the same database structure
+        dumped on a different host or at a different time would produce a
+        byte-for-byte identical snapshot.
 
         Stderr should be connected to a pipe so that the caller can read error
         messages, if any.

@@ -6,15 +6,15 @@ Workflow
 Overview
 --------
 
-Agnostic doesn't impose any particular workflow — that's one of its selling
+Agnostic doesn't impose any particular workflow—that's one of its selling
 points! This document describes a hypothetical workflow for the purpose of
 illustration. By stepping through this workflow, we may gain a better insight
 into how to use Agnostic within any workflow of our choosing.
 
-In this hypothetical scenario, we are going to be developing a customer schema.
-Along the way, we will use Agnostic's testing tools to make sure that our
-migrations work the way we expect them to. We will also handle a merge from a
-coworker's source code.
+In this hypothetical scenario, we are going to be developing a customer
+database. Along the way, we will use Agnostic's testing tools to make sure that
+our migrations work the way we expect them to. We will also handle a merge from
+a coworker's source code.
 
 .. note::
 
@@ -39,17 +39,17 @@ migrations system.
 That's it! If you're familiar with other migrations systems, then you may be
 wondering where the rest of the set up procedure is.
 
-Snapshot Current Schema
------------------------
+Snapshot Current Database Structure
+-----------------------------------
 
 In our hypothetical application, we are using an ORM. We define our data models
-using the ORM API and then the ORM generates SQL to build a schema.
+using the ORM API and then the ORM generates SQL to build a database structure.
 
 .. note::
 
     This ORM build process saves us effort, as long as we can make sure that
-    building a new schema from scratch always produces the same exact result as
-    running migrations on an existing schema.
+    building a new database structure from scratch always produces the same
+    exact result as running migrations on an existing database structure.
 
 Our ORM outputs SQL to create a customer table like this:
 
@@ -61,9 +61,9 @@ Our ORM outputs SQL to create a customer table like this:
         phone VARCHAR(255)
     );
 
-Before we begin working on a new task, we should snapshot the current schema. A
-snapshot contains schema definition statements, but it does not include any
-data. Snapshots are useful for testing, which we will see later.
+Before we begin working on a new task, we should snapshot the current database
+structure. A snapshot contains database structure statements, but it does not
+include any data. Snapshots are useful for testing, which we will see later.
 
 .. code:: bash
 
@@ -71,15 +71,15 @@ data. Snapshots are useful for testing, which we will see later.
     Creating snapshot...
     Snapshot written to "current.sql".
 
-We name the file ``current.sql`` so that we can compare later schema builds to
+We name the file ``current.sql`` so that we can compare later database builds to
 it.
 
-Build New Schema With ORM
--------------------------
+Build New Database With ORM
+---------------------------
 
 We put Agnostic aside for a while and tinker with our ORM data models. After
 some time building and testing our new features, we ask the ORM to build a new
-schema.
+database.
 
 .. code:: sql
 
@@ -90,7 +90,7 @@ schema.
         cell_phone VARCHAR(255)
     );
 
-This example may be small enough that the schema changes are obvious, but real
+This example may be small enough that the database changes are obvious, but real
 world use cases will often be far more complex. Let's use Agnostic to help us
 understand what the ORM has changed. We'll begin by taking a second snapshot.
 
@@ -104,11 +104,11 @@ understand what the ORM has changed. We'll begin by taking a second snapshot.
     Snapshot written to "target.sql".
 
 Now we have two SQL files, ``current.sql`` and ``target.sql``. The former
-describes how our schema looked before we started working on these new features,
-and the latter describes the target state that we want our migrations to
-produce.
+describes how our database structure looked before we started working on these
+new features, and the latter describes the target state that we want our
+migrations to produce.
 
-Let's compare these two schemas to identify the differences.
+Let's compare these two database structures to identify the differences.
 
 .. code:: bash
 
@@ -121,10 +121,10 @@ Let's compare these two schemas to identify the differences.
 
 The diff helps us see that the ``phone`` column was replaced with ``home_phone``
 and ``cell_phone``. Now that we have some idea what we need to do, we can write
-some migrations that convert the schema in ``current.sql`` into the schema in
-``target.sql``.
+some migrations that convert the database structure in ``current.sql`` into the
+database structure in ``target.sql``.
 
-.. _test_migrations:
+.. _test-migrations:
 
 Write & Test Migrations
 -----------------------
@@ -143,16 +143,16 @@ migrations.
 
 With most migration systems, we'd simply cross our fingers, check in these
 scripts, and hope that they produce the precise effect that we desire. However,
-we'd really like to test that these migrations produce exactly the same schema
-that the ORM generated.
+we'd really like to test that these migrations produce exactly the same database
+structure that the ORM generated.
 
 Here's a possible testing process:
 
-1. Load a "current" snapshot of the schema.
+1. Load a "current" snapshot of the database.
 2. Run migrations on the current snapshot.
-3. Snapshot this new, migrated schema.
-4. Build a new schema using your ORM.
-5. Snapshot this ORM-built schema.
+3. Snapshot this new, migrated database.
+4. Build a new database using your ORM.
+5. Snapshot this ORM-built database.
 6. Compare the migrated snapshot to the target snapshot.
 7. If there are any differences between the snapshots, then the test fails.
 8. If the snapshots are identical, then the test passes and we can go to lunch
@@ -165,17 +165,17 @@ Sounds like a lot of thankless, tedious work, right?
 .. code:: bash
 
     ~/myapp $ agnostic -t postgres -u myuser -d mydb test current.sql target.sql
-    WARNING: This will drop the schema "myapp"!
+    WARNING: This will drop the database "myapp"!
     Are you 100% positive that you want to do this? [y/N]: y
-    Dropping schema "myapp".
+    Dropping database "myapp".
     Loading current snapshot "current.sql".
-    About to run 2 migrations in schema "myapp":
+    About to run 2 migrations in database "myapp":
      * Running migration add_cell_phone (1/2)
      * Running migration add_home_phone (2/2)
     Finished migrations.
-    Snapshotting the migrated schema.
-    Comparing migrated schema to target schema.
-    Test passed: migrated schema matches target schema!
+    Snapshotting the migrated database.
+    Comparing migrated database to target database.
+    Test passed: migrated database matches target database!
 
 In just a few seconds, Agnostic was able to perform that tedious testing process
 that we were dreading, and better yet, it proves that our migrations do exactly
@@ -195,7 +195,7 @@ migrations.
 
 .. code:: bash
 
-    ~/myapp $ # SCM checkout original version && ORM build schema
+    ~/myapp $ # SCM checkout original version && ORM build database
 
     ~/myapp $ agnostic -t postgres -u myuser -d mydb bootstrap
     Migration table created
@@ -204,7 +204,7 @@ migrations.
     Creating snapshot...
     Snapshot written to "current.sql".
 
-    ~/myapp $ # SCM checkout latest version && ORM build schema
+    ~/myapp $ # SCM checkout latest version && ORM build database
 
     ~/myapp $ agnostic -t postgres -u myuser -d mydb bootstrap
     Migration table created
@@ -214,11 +214,11 @@ migrations.
     Snapshot written to "target.sql".
 
     ~/myapp $ agnostic -t postgres -u myuser -d mydb test current.sql target.sql
-    WARNING: This will drop the schema "myapp"!
+    WARNING: This will drop the database "myapp"!
     Are you 100% positive that you want to do this? [y/N]: y
-    Dropping schema "myapp".
+    Dropping database "myapp".
     Loading current snapshot "current.sql".
-    About to run 3 migrations in schema "myapp":
+    About to run 3 migrations in database "myapp":
      * Running migration add_cell_phone (1/3)
      * Running migration add_home_phone (2/3)
      * Running migration add_office_phone (3/3)
@@ -249,21 +249,21 @@ Now re-execute the test:
 .. code:: bash
 
     ~/myapp $ agnostic -t postgres -u myuser -d mydb test current.sql target.sql
-    WARNING: This will drop the schema "myapp"!
+    WARNING: This will drop the database "myapp"!
     Are you 100% positive that you want to do this? [y/N]: y
-    Dropping schema "myapp".
+    Dropping database "myapp".
     Loading current snapshot "current.sql".
-    About to run 3 migrations in schema "myapp":
+    About to run 3 migrations in database "myapp":
      * Running migration add_cell_phone (1/3)
      * Running migration add_home_phone (2/3)
      * Running migration add_office_phone (3/3)
     Finished migrations.
-    Snapshotting the migrated schema.
-    Comparing migrated schema to target schema.
-    Test failed: migrated schema differs from target schema.
+    Snapshotting the migrated database.
+    Comparing migrated database to target database.
+    Test failed: migrated database differs from target database.
 
-    --- Migrated Schema
-    +++ Target Schema
+    --- Migrated DB
+    +++ Target DB
     @@ -50,7 +50,7 @@
          address character varying(255),
          home_phone character varying(255),
@@ -275,9 +275,9 @@ Now re-execute the test:
     Error: Test failed. See diff output above.
 
 This time, the migration runs successfully, but it doesn't produce the correct
-schema. Agnostic points out where the migrated schema differs from the target
-schema, and the mistake is blindingly obvious: you misspelled "phone" in your
-migration!
+database structure. Agnostic points out where the migrated database differs from
+the target database, and the mistake is blindingly obvious: you misspelled
+"phone" in your migration!
 
 One last fix and re-test:
 
@@ -286,18 +286,18 @@ One last fix and re-test:
     ~/myapp $ sed -i 's:office_phon:office_phone:' migrations/add_office_phone.sql
 
     ~/myapp $ agnostic -t postgres -u myuser -d mydb test current.sql target.sql
-    WARNING: This will drop the schema "myapp"!
+    WARNING: This will drop the database "myapp"!
     Are you 100% positive that you want to do this? [y/N]: y
-    Dropping schema "myapp".
+    Dropping database "myapp".
     Loading current snapshot "current.sql".
-    About to run 3 migrations in schema "myapp":
+    About to run 3 migrations in database "myapp":
      * Running migration add_cell_phone (1/2)
      * Running migration add_home_phone (2/2)
      * Running migration add_office_phone (3/3)
     Finished migrations.
-    Snapshotting the migrated schema.
-    Comparing migrated schema to target schema.
-    Test passed: migrated schema matches target schema!
+    Snapshotting the migrated database.
+    Comparing migrated database to target database.
+    Test passed: migrated database matches target database!
 
 Nice work, sir or madam! You've earned an 80's style movie slow clap.
 
@@ -320,8 +320,8 @@ to be surprised by when you migrate your production databases.
 .. code:: bash
 
     ~/myapp $ agnostic -t postgres -u myuser -d mydb migrate
-    Backing up schema "myapp" to "/tmp/tmpuy2v7hxc".
-    About to run 3 migrations in schema "myapp":
+    Backing up database "myapp" to "/tmp/tmpuy2v7hxc".
+    About to run 3 migrations in database "myapp":
      * Running migration add_cell_phone (1/3)
      * Running migration add_home_phone (2/3)
      * Running migration add_office_phone (3/3)

@@ -26,7 +26,7 @@ pass_config = click.make_pass_decorator(Config, ensure=True)
 @click.option(
     '-t', '--db-type',
     envvar='AGNOSTIC_TYPE',
-    metavar='<db_type>',
+    metavar='<type>',
     required=True,
     type=click.Choice(['mysql', 'postgres', 'sqlite']),
     help='Type of database.'
@@ -88,7 +88,7 @@ pass_config = click.make_pass_decorator(Config, ensure=True)
 @pass_config
 def main(config, db_type, host, port, user, password, database, schema,
          migrations_dir, debug):
-    ''' Agnostic database migrations: upgrade schemas, save your sanity. '''
+    ''' Agnostic database migrations '''
 
     config.debug = debug
     config.migrations_dir = migrations_dir
@@ -349,9 +349,10 @@ def snapshot(config, outfile):
     '''
     Take a snapshot of the current DB structure and write it to OUTFILE.
 
-    Snapshots are used for testing that migrations will produce a schema that
-    exactly matches the schema produced by your build system. See the
-    online documentation for more details on how to use this feature.
+    Snapshots are used for testing that migrations will produce a database
+    structure that exactly matches the database structure produced by your build
+    system. See the online documentation for more details on how to use this
+    feature.
     '''
 
     click.echo('Creating snapshot of {}…'.format(config.backend.location))
@@ -382,15 +383,16 @@ def test(config, yes, current, target):
     Given two snapshots, one of your "current" state and one of your "target"
     state, this command verifies: current + migrations = target.
 
-    If you have a schema build system, this command is useful for verifying that
-    your new migrations will produce the exact same schema as the build system.
+    If you have a database build system, this command is useful for verifying
+    that your new migrations will produce the exact same database structure as
+    the build system.
 
     Note: you may find it useful to set up a database for testing separate from
     the one that you use for development; this allows you to test repeatedly
     without disrupting your development work.
     '''
 
-    # Create a temporary file for holding the migrated schema.
+    # Create a temporary file for holding the migrated database.
     temp_snapshot = tempfile.TemporaryFile('w+')
 
     # Make sure the user understands what is about to happen.
@@ -406,7 +408,7 @@ def test(config, yes, current, target):
         raise click.Abort()
 
     with _get_db_cursor(config) as (db, cursor):
-        # Load the current schema.
+        # Load the current database structure.
         click.echo('Dropping {}.'.format(config.backend.location))
         config.backend.clear_db(cursor)
 
@@ -414,7 +416,7 @@ def test(config, yes, current, target):
     _wait_for(config.backend.restore_db(current))
 
     with _get_db_cursor(config) as (db, cursor):
-        # Run migrations on current schema.
+        # Run migrations on current database structure.
         _, pending = _get_all_migrations(config, cursor)
         total = len(pending)
         click.echo(
@@ -431,14 +433,14 @@ def test(config, yes, current, target):
 
         click.echo('Finished migrations.')
 
-    # Dump the migrated schema to the temp file.
+    # Dump the migrated database structure to the temp file.
     click.echo('Snapshotting the migrated database.')
     _wait_for(config.backend.snapshot_db(temp_snapshot))
     with _get_db_cursor(config) as (db, cursor):
         config.backend.write_migration_inserts(cursor, temp_snapshot)
 
-    # Compare the migrated schema to the target schema.
-    click.echo('Comparing migrated schema to target schema.')
+    # Compare the migrated database structure to the target database structure.
+    click.echo('Comparing migrated database to target database.')
     temp_snapshot.seek(0)
 
     ignore = 'INSERT INTO agnostic_migrations'
@@ -448,18 +450,18 @@ def test(config, yes, current, target):
     diff = list(difflib.unified_diff(
         migrated,
         targeted,
-        fromfile='Migrated Schema',
-        tofile='Target Schema'
+        fromfile='Migrated DB',
+        tofile='Target DB'
     ))
 
     if len(diff) == 0:
         click.secho(
-            'Test passed: migrated schema matches target schema!',
+            'Test passed: migrated database matches target database!',
             fg='green'
         )
     else:
         click.secho(
-            'Test failed: migrated schema differs from target schema.\n',
+            'Test failed: migrated database differs from target database.\n',
             fg='red'
         )
         click.echo(''.join(diff))

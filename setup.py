@@ -28,6 +28,7 @@ setup(
         'dev': ['nose>=1.3.7,<1.4.0'],
         'mysql': ['PyMySQL>=0.9.2,<0.10.0'],
         'postgres': ['pg8000>=1.12.3,<1.13.0'],
+        'sqlite3': [], # No actual dependencies, only here for symmetry.
     },
     entry_points='''
         [console_scripts]
