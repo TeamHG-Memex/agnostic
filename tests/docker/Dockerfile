@@ -7,7 +7,7 @@ RUN apt-get update && \
 RUN curl  https://bootstrap.pypa.io/get-pip.py | python3
 RUN pip3 install 'Click>=7.0,<8.0' 'sqlparse>=0.2.4,<0.3.0' 'nose>=1.3.7,<1.4.0' \
     'PyMySQL>=0.9.2,<0.10.0' 'pg8000>=1.12.3,<1.13.0'
-RUN pip3 install sphinx sphinx_rtd_theme
+RUN pip3 install coveralls sphinx sphinx_rtd_theme
 COPY supervisor.conf /etc/supervisor/conf.d/agnostic-tests.conf
 RUN mkdir -p /var/log/supervisor
 
@@ -29,6 +29,9 @@ ENV MYSQL_USER=root
 ENV MYSQL_PASSWORD=root
 ENV POSTGRES_USER=root
 ENV POSTGRES_PASSWORD=root
+
+# Work around weird MySQL-in-Docker error: https://serverfault.com/questions/870568/fatal-error-cant-open-and-lock-privilege-tables-table-storage-engine-for-use
+VOLUME /var/lib/mysql
 
 VOLUME /opt/agnostic
 ENTRYPOINT ["/usr/bin/supervisord"]

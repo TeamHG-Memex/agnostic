@@ -86,8 +86,8 @@ container described in the previous section. Any time you modify the
 `agnostic-tests` Docker image, you should tag and push it to Docker Hub so that
 Travis CI will be able to find it.
 
-    docker tag agnostic-tests hyperiongray/agnostic-tests
-    docker push hyperiongray/agnostic-tests
+    docker tag agnostic-tests hyperiongray/agnostic-tests:latest
+    docker push hyperiongray/agnostic-tests:latest
 
 Even though the `:latest` tag is usually a bad idea, it should be fine for this
 extremely simple image that will not change very often.
