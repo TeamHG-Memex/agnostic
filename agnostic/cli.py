@@ -97,10 +97,7 @@ def main(config, db_type, host, port, user, password, database, schema,
         config.backend = create_backend(db_type, host, port, user, password,
                                         database, schema)
     except RuntimeError as re:
-        if config.debug:
-            raise
-        else:
-            raise click.ClickException(str(re))
+        raise click.ClickException(str(re))
 
 
 @click.command()
@@ -328,9 +325,9 @@ def migrate(config, backup):
                         _wait_for(config.backend.restore_db(backup_handle))
                     click.secho('Restored from backup.', fg='green')
                 except Exception as e2:
-                    raise e2
                     msg = 'Could not restore from backup: {}'.format(e2)
                     click.secho(msg, fg='red', bold=True)
+                    raise
 
             if config.debug:
                 raise
@@ -607,11 +604,11 @@ def _wait_for(process):
         params = (
             process.args[0],
             process.returncode,
-            process.stderr.read().decode('utf8')
+            process.stderr.read().decode('utf8', errors='replace')
         )
 
         raise click.ClickException(msg.format(*params))
 
 
-if __name__ == '__main__':
+if __name__ == '__main__': #pragma no cover
     main()

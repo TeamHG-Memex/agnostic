@@ -63,25 +63,25 @@ class Migration():
                 return datetime.strptime(dt, '%Y-%m-%d %H:%M:%S')
         else:
             msg = '`{}` must be None or an instance of str or datetime.'
-            raise ValueError(msg.format(name))
+            raise ValueError(repr(dt))
 
-    def to_sql(self):
-        ''' Serialize this migration metadata to a tuple of SQL strings. '''
+    # def to_sql(self): TODO DELETE
+    #     ''' Serialize this migration metadata to a tuple of SQL strings. '''
 
-        return (
-            self.name,
-            self.status.name,
-            self.started_at.strftime(Migration.SQL_DATE_FORMAT),
-            self.completed_at.strftime(Migration.SQL_DATE_FORMAT),
-        )
+    #     return (
+    #         self.name,
+    #         self.status.name,
+    #         self.started_at.strftime(Migration.SQL_DATE_FORMAT),
+    #         self.completed_at.strftime(Migration.SQL_DATE_FORMAT),
+    #     )
 
 
 def create_backend(db_type, host, port, user, password, database, schema):
     '''
     Return a new backend instance.
     '''
-    def askpass():
-        return getpass('Password for {}:'.format(user))
+    def askpass(user, db):
+        return getpass('Enter password for "{}" on "{}":'.format(user, db))
 
     if db_type == 'mysql':
         if schema is not None:
@@ -90,10 +90,10 @@ def create_backend(db_type, host, port, user, password, database, schema):
             raise RuntimeError('MySQL requires user and database arguments.')
         host = host or 'localhost'
         if password is None:
-            password = askpass()
+            password = askpass(user, database)
         try:
             from agnostic.mysql import MysqlBackend
-        except ImportError as ie:
+        except ImportError as ie: # pragma: no cover
             if ie.name == 'pymysql':
                 raise RuntimeError('The `pymysql` module is required for '
                     'MySQL.')
@@ -106,13 +106,13 @@ def create_backend(db_type, host, port, user, password, database, schema):
             raise RuntimeError('PostgreSQL requires user and database '
                 'arguments.')
         host = host or 'localhost'
-        password = password or askpass()
+        password = password or askpass(user, database)
         try:
             from agnostic.postgres import PostgresBackend
-        except ImportError as ie:
+        except ImportError as ie: # pragma: no cover
             if ie.name == 'pg8000':
-                msg = 'The `pg8000` module is required for Postgres.'
-                raise RuntimeError(msg)
+                raise RuntimeError('The `pg8000` module is required for '
+                    ' Postgres.')
             else:
                 raise
         return PostgresBackend(host, port, user, password, database, schema)
@@ -136,11 +136,9 @@ class AbstractBackend(metaclass=ABCMeta):
 
     @property
     def location(self):
-        location = 'database "{}"'.format(self._database)
-
-        if self._schema is not None:
-            location += ' (schema: {})'.format(self._schema)
-
+        schema = '' if self._schema is None else ' schema={}'.format(
+            self._schema)
+        location = 'database [{}{}]'.format(self._database, schema)
         return location
 
     def __init__(self, host, port, user, password, database, schema):

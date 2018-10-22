@@ -85,7 +85,7 @@ class PostgresBackend(AbstractBackend):
         # Drop schema objects.
         for schema in self._split_schema():
             if schema != 'public':
-                sql = 'DROP SCHEMA IF EXISTS %s CASCADE'.format(schema)
+                sql = 'DROP SCHEMA IF EXISTS {} CASCADE'.format(schema)
                 cursor.execute(sql)
 
     def connect_db(self):
@@ -103,6 +103,9 @@ class PostgresBackend(AbstractBackend):
 
         db = pg8000.connect(**connect_args)
         db.autocommit = True
+        if self._schema is not None:
+            cursor = db.cursor()
+            cursor.execute("SET SCHEMA '{}'".format(self._schema))
         return db
 
     def get_schema_command(self):

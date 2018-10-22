@@ -22,7 +22,12 @@ class ReportClassName(nose.plugins.Plugin):
 
     def describeTest(self, nose_wrapper):
         test = nose_wrapper.test
-        return '[{}] {}'.format(test.__class__.__name__, test._testMethodDoc.strip())
+        doc = test._testMethodDoc
+        if doc is None:
+            doc = test._testMethodName
+        else:
+            doc = doc.strip()
+        return '[{}] {}'.format(test.__class__.__name__, doc)
 
 
 if __name__ == '__main__':

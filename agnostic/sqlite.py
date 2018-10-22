@@ -1,3 +1,4 @@
+import shutil
 import sqlite3
 import subprocess
 
@@ -19,7 +20,7 @@ class SqlLiteBackend(AbstractBackend):
         '''
 
         process = subprocess.Popen(
-            ['cat', self._database],
+            ['sqlite3', self._database, '.dump'],
             stdout=backup_file,
             stderr=subprocess.PIPE
         )
@@ -46,12 +47,14 @@ class SqlLiteBackend(AbstractBackend):
         '''
         Return a ``Popen`` instance that will restore the database from the
         ``backup_file`` handle.
+
+        In SQLite we can easily backup/restore by copying the entire database
+        file, so we immediately close the open file and run ``cp`` instead.
         '''
 
         process = subprocess.Popen(
             ['sqlite3', self._database],
-            stdin=backup_file,
-            stdout=subprocess.DEVNULL,
+            stdin= backup_file,
             stderr=subprocess.PIPE
         )
 

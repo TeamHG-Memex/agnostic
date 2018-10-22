@@ -349,6 +349,38 @@ class AbstractDatabaseTest(metaclass=ABCMeta):
         self.assertIn('pending',                 lines[4])
         self.assertIn('N/A',                     lines[4])
 
+    def test_list_failed_migrations(self):
+        '''
+        The "list" command shows failed migrations.
+        '''
+
+        with self.get_db(self._test_db) as (db, cursor):
+            self.create_migrations_table(cursor)
+            self.insert_migration(cursor, 'foo', 'bootstrapped')
+            self.insert_migration(cursor, 'bar', 'succeeded')
+            self.insert_migration(cursor, 'baz', 'failed')
+
+        migrations_dir = self.create_migrations_dir('employee', [
+            '1_create_employee_table'
+        ])
+
+        result = self.run_cli(['list'], migrations_dir)
+        lines = result.output.split(os.linesep)
+
+        # Assertions against the text output: these are unavoidably brittle.
+        # Lines 1 and 2 are table headers and not interesting. Lines 3-5 are
+        # migration data.
+        self.assertEqual(7, len(lines))
+        self.assertIn('foo',                     lines[2])
+        self.assertIn('bootstrapped',            lines[2])
+        self.assertIn('bar',                     lines[3])
+        self.assertIn('succeeded',               lines[3])
+        self.assertIn('baz',                     lines[4])
+        self.assertIn('failed',                  lines[4])
+        self.assertIn('1_create_employee_table', lines[5])
+        self.assertIn('pending',                 lines[5])
+        self.assertIn('N/A',                     lines[5])
+
     def test_migrate_runs_pending_migrations(self):
         '''
         The "migrate" command runs pending migrations.
@@ -386,6 +418,41 @@ class AbstractDatabaseTest(metaclass=ABCMeta):
             (status1,), (status2,) = cursor.fetchall()
             self.assertEqual('succeeded', status1)
             self.assertEqual('succeeded', status2)
+
+    def test_migrate_fails_if_earlier_migrations_failed(self):
+        '''
+        The "migrate" command does not run if earlier migrations failed.
+        '''
+
+        with self.get_db(self._test_db) as (db, cursor):
+            self.create_migrations_table(cursor)
+            self.insert_migration(cursor, 'foo', 'bootstrapped')
+            self.insert_migration(cursor, 'bar', 'succeeded')
+            self.insert_migration(cursor, 'baz', 'failed')
+
+        migrations_dir = self.create_migrations_dir('employee', [
+            '1_create_employee_table',
+            '2_rename_phone_to_home',
+            '3_add_cell_phone',
+        ])
+
+        result = self.run_cli(['migrate'], migrations_dir)
+        self.assertNotEqual(result.exit_code, 0)
+
+    def test_migrate_fails_on_invalid_sql(self):
+        '''
+        The "migrate" command fails if a migration contains invalid SQL.
+        '''
+
+        with self.get_db(self._test_db) as (db, cursor):
+            self.create_migrations_table(cursor)
+            self.insert_migration(cursor, 'foo', 'bootstrapped')
+            self.insert_migration(cursor, 'bar', 'succeeded')
+
+        migrations_dir = self.create_migrations_dir('employee', ['1_invalid'])
+
+        result = self.run_cli(['migrate'], migrations_dir)
+        self.assertNotEqual(result.exit_code, 0)
 
     def test_migrate_no_error_if_nothing_pending(self):
         '''
@@ -437,7 +504,7 @@ class AbstractDatabaseTest(metaclass=ABCMeta):
         self.assertNotIn('Doe', snapshot)
         self.assertNotIn('12025551234', snapshot)
 
-    def test_test_succeeds_for_correct_migrations(self):
+    def test_tester_succeeds_for_correct_migrations(self):
         '''
         The "test" command succeeds if all migrations are written correctly.
         '''

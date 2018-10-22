@@ -20,3 +20,7 @@ CREATE TABLE compensation (
 /* Make sure that types are created/dropped correctly. */
 
 CREATE TYPE emp_type AS ENUM ('fulltime', 'partime', 'freelance');
+
+/* Make sure that sequences are created/dropped correctly. */
+
+CREATE SEQUENCE emp_id START 1 INCREMENT 1;
