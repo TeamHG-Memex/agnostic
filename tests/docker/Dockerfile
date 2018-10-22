@@ -1,10 +1,13 @@
 FROM ubuntu:16.04
 MAINTAINER mehaase@gmail.com
 RUN apt-get update && \
-    DEBIAN_FRONTEND=noninteractive apt-get install -y curl make mysql-server postgresql sqlite3 supervisor && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y curl make mysql-server \
+        postgresql sqlite3 supervisor && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 RUN curl  https://bootstrap.pypa.io/get-pip.py | python3
-RUN pip3 install agnostic[dev,mysql,postgres] sphinx sphinx_rtd_theme
+RUN pip3 install 'Click>=7.0,<8.0' 'sqlparse>=0.2.4,<0.3.0' 'nose>=1.3.7,<1.4.0' \
+    'PyMySQL>=0.9.2,<0.10.0' 'pg8000>=1.12.3,<1.13.0'
+RUN pip3 install sphinx sphinx_rtd_theme
 COPY supervisor.conf /etc/supervisor/conf.d/agnostic-tests.conf
 RUN mkdir -p /var/log/supervisor
 

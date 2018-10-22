@@ -3,7 +3,7 @@ from setuptools import setup
 
 setup(
     name='agnostic',
-    version='0.11', # Update docs/conf.py also!
+    version='1.0.0', # Update docs/conf.py also!
     author='Mark E. Haase',
     author_email='mehaase@gmail.com',
     description='Agnostic Database Migrations',
@@ -20,12 +20,12 @@ setup(
         'Programming Language :: Python :: 3 :: Only',
         'Topic :: Utilities',
     ],
+    # Keep the dependencies in sync with tests/docker/Dockerfile dependencies:
     install_requires=[
         'Click>=7.0,<8.0',
         'sqlparse>=0.2.4,<0.3.0',
     ],
     extras_require = {
-        'dev': ['nose>=1.3.7,<1.4.0'],
         'mysql': ['PyMySQL>=0.9.2,<0.10.0'],
         'postgres': ['pg8000>=1.12.3,<1.13.0'],
         'sqlite3': [], # No actual dependencies, only here for symmetry.

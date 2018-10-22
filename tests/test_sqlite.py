@@ -59,7 +59,6 @@ class TestSqlLite(AbstractDatabaseTest, unittest.TestCase):
 
     def table_columns(self, cursor, database, table_name):
         ''' Return a list of columns in the specified table. '''
-        import logging
         sql = "pragma table_info('{}')".format(table_name)
         cursor.execute(sql)
         columns = [row[1] for row in cursor.fetchall()]
