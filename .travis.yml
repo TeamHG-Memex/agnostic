@@ -13,7 +13,7 @@ script:
   - docker exec agnostic-tests bash -c "cd /opt/agnostic && python3 -m tests --with-coverage --cover-package agnostic --with-reportclassname -v"
 
 after_success:
-  - docker exec -e TRAVIS=true -e TRAVIS_JOB_ID="$TRAVIS_JOB_ID" -e TRAVIS_BRANCH="$TRAVIS_BRANCH" -e TRAVIS_PULL_REQUEST="$TRAVIS_PULL_REQUEST" agnostic-tests bash -c "cd /opt/agnostic && env && ls -l . && coveralls"
+  - docker exec -e TRAVIS=true -e TRAVIS_JOB_ID="$TRAVIS_JOB_ID" -e TRAVIS_BRANCH="$TRAVIS_BRANCH" -e TRAVIS_PULL_REQUEST="$TRAVIS_PULL_REQUEST" agnostic-tests bash -c "cd /opt/agnostic && coveralls"
 
 after_script:
   - docker stop agnostic-tests

@@ -1,15 +1,15 @@
 Agnostic Database Migrations
 ============================
 
-.. image:: https://img.shields.io/pypi/v/agnostic.svg
+.. image:: https://img.shields.io/pypi/v/agnostic.svg?style=flat-square
    :target: https://pypi.python.org/pypi/agnostic
    :alt: PyPI Version
 
-.. image:: https://travis-ci.org/TeamHG-Memex/agnostic.svg?branch=master
+.. image:: https://img.shields.io/travis/TeamHG-Memex/agnostic.svg?style=flat-square
     :target: https://travis-ci.org/TeamHG-Memex/agnostic
     :alt: Build Status
 
-.. image:: https://coveralls.io/repos/github/TeamHG-Memex/agnostic/badge.svg?branch=master
+.. image:: https://img.shields.io/coveralls/github/TeamHG-Memex/agnostic.svg?style=flat-square
     :target: https://coveralls.io/github/TeamHG-Memex/agnostic?branch=master
     :alt: Code Coverage
 
@@ -49,7 +49,7 @@ Here is an absurdly brief introduction to Agnostic:
     Removing backup "/tmp/tmpm8glpgaa".
 
 For a not-quite-as-quick-but-still-pretty-quick start, please refer to the
-`full documentation <http://agnostic.readthedocs.org/en/latest/index.html>`_.
+`full documentation <https://agnostic.readthedocs.io//>`_.
 
 ----
 
