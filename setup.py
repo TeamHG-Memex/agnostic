@@ -9,7 +9,7 @@ with readme.open() as readme_data:
 
 setup(
     name='agnostic',
-    version='1.0.1', # Update docs/conf.py also!
+    version='1.1.0-dev', # Update docs/conf.py also!
     author='Mark E. Haase',
     author_email='mehaase@gmail.com',
     description='Agnostic Database Migrations',
