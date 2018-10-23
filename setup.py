@@ -1,12 +1,19 @@
+import pathlib
 from setuptools import setup
+
+
+readme = pathlib.Path(__file__).parent / 'README.rst'
+with readme.open() as readme_data:
+    long_description = readme_data.read()
 
 
 setup(
     name='agnostic',
-    version='1.1.0-dev', # Update docs/conf.py also!
+    version='1.0.1', # Update docs/conf.py also!
     author='Mark E. Haase',
     author_email='mehaase@gmail.com',
     description='Agnostic Database Migrations',
+    long_description=long_description,
     license='MIT',
     keywords='database migrations',
     url='https://github.com/TeamHG-Memex/agnostic',
