@@ -165,6 +165,7 @@ class PostgresBackend(AbstractBackend):
             '-s', # dump schema only
             '-x', # don't dump grant/revoke statements
             '-O', # don't dump ownership commands
+            '--clean',
             '--no-tablespaces',
         ]
 
