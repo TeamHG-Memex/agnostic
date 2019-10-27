@@ -1,3 +1,4 @@
+import os
 import subprocess
 
 import pg8000
@@ -15,6 +16,7 @@ class PostgresBackend(AbstractBackend):
         '''
 
         env = {'PGPASSWORD': self._password}
+        env.update(os.environ)
 
         command = [
             'pg_dump',
@@ -123,6 +125,7 @@ class PostgresBackend(AbstractBackend):
         '''
 
         env = {'PGPASSWORD': self._password}
+        env.update(os.environ)
 
         command = [
             'psql',
@@ -153,6 +156,7 @@ class PostgresBackend(AbstractBackend):
         '''
 
         env = {'PGPASSWORD': self._password}
+        env.update(os.environ)
 
         command = [
             'pg_dump',
