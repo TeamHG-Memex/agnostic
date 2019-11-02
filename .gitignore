@@ -5,3 +5,5 @@ build
 .coverage
 .test_env
 dist
+venv
+
