@@ -82,7 +82,8 @@ class TestUnit(unittest.TestCase):
         args = mock_subprocess.Popen.call_args
         self.assertEqual(args[0][0], ['mysqldump', '-h', 'localhost', '-u',
             'root', '-P', '3307', 'testdb'])
-        self.assertEqual(args[1]['env'], {'MYSQL_PWD': 'password'})
+        self.assertIn('MYSQL_PWD', args[1]['env'])
+        self.assertEqual(args[1]['env']['MYSQL_PWD'], 'password')
 
     @patch('agnostic.mysql.pymysql')
     def test_mysql_connect_with_port(self, mock_pymysql):
@@ -108,7 +109,8 @@ class TestUnit(unittest.TestCase):
         args = mock_subprocess.Popen.call_args
         self.assertEqual(args[0][0], ['mysql', '-h', 'localhost', '-u',
             'root', '-P', '3307', 'testdb'])
-        self.assertEqual(args[1]['env'], {'MYSQL_PWD': 'password'})
+        self.assertIn('MYSQL_PWD', args[1]['env'])
+        self.assertEqual(args[1]['env']['MYSQL_PWD'], 'password')
 
     @patch('agnostic.mysql.subprocess')
     def test_mysql_snapshot_with_port(self, mock_subprocess):
@@ -120,7 +122,8 @@ class TestUnit(unittest.TestCase):
         self.assertEqual(args[0][0], ['mysqldump', '-h', 'localhost', '-u',
             'root', '--no-create-db', '--no-data', '--compact', '-P', '3307',
             'testdb'])
-        self.assertEqual(args[1]['env'], {'MYSQL_PWD': 'password'})
+        self.assertIn('MYSQL_PWD', args[1]['env'])
+        self.assertEqual(args[1]['env']['MYSQL_PWD'], 'password')
 
     def test_postgres_backend(self):
         be = agnostic.create_backend('postgres', 'localhost', None, 'root',
@@ -160,7 +163,8 @@ class TestUnit(unittest.TestCase):
         args = mock_subprocess.Popen.call_args
         self.assertEqual(args[0][0], ['pg_dump', '-h', 'localhost', '-U',
             'root', '-p', '5433', 'testdb'])
-        self.assertEqual(args[1]['env'], {'PGPASSWORD': 'password'})
+        self.assertIn('PGPASSWORD', args[1]['env'])
+        self.assertEqual(args[1]['env']['PGPASSWORD'], 'password')
 
     @patch('agnostic.postgres.pg8000')
     def test_postgres_connect_with_port(self, mock_pymysql):
@@ -185,7 +189,8 @@ class TestUnit(unittest.TestCase):
         args = mock_subprocess.Popen.call_args
         self.assertEqual(args[0][0], ['psql', '-h', 'localhost', '-U',
             'root', '-v', 'ON_ERROR_STOP=1', '-p', '5433', 'testdb'])
-        self.assertEqual(args[1]['env'], {'PGPASSWORD': 'password'})
+        self.assertIn('PGPASSWORD', args[1]['env'])
+        self.assertEqual(args[1]['env']['PGPASSWORD'], 'password')
 
     @patch('agnostic.postgres.subprocess')
     def test_postgres_snapshot_with_port(self, mock_subprocess):
@@ -197,7 +202,8 @@ class TestUnit(unittest.TestCase):
         self.assertEqual(args[0][0], ['pg_dump', '-h', 'localhost', '-U',
             'root', '-s', '-x', '-O', '--no-tablespaces', '-p', '5433',
             'testdb'])
-        self.assertEqual(args[1]['env'], {'PGPASSWORD': 'password'})
+        self.assertIn('PGPASSWORD', args[1]['env'])
+        self.assertEqual(args[1]['env']['PGPASSWORD'], 'password')
 
     @patch('agnostic.postgres.subprocess')
     def test_postgres_backup_with_schema(self, mock_subprocess):
@@ -208,7 +214,8 @@ class TestUnit(unittest.TestCase):
         args = mock_subprocess.Popen.call_args
         self.assertEqual(args[0][0], ['pg_dump', '-h', 'localhost', '-U',
             'root', '-n', 'testschema', 'testdb'])
-        self.assertEqual(args[1]['env'], {'PGPASSWORD': 'password'})
+        self.assertIn('PGPASSWORD', args[1]['env'])
+        self.assertEqual(args[1]['env']['PGPASSWORD'], 'password')
 
     @patch('agnostic.postgres.pg8000')
     def test_postgres_connect_with_schema(self, mock_pymysql):
@@ -235,7 +242,8 @@ class TestUnit(unittest.TestCase):
         self.assertEqual(args[0][0], ['pg_dump', '-h', 'localhost', '-U',
             'root', '-s', '-x', '-O', '--no-tablespaces', '-n', 'root', '-n',
             'public', 'testdb'])
-        self.assertEqual(args[1]['env'], {'PGPASSWORD': 'password'})
+        self.assertIn('PGPASSWORD', args[1]['env'])
+        self.assertEqual(args[1]['env']['PGPASSWORD'], 'password')
 
     def test_postgres_clear_db_with_schema(self):
         be = agnostic.create_backend('postgres', 'localhost', None, 'root',

@@ -1,3 +1,4 @@
+import os
 import subprocess
 
 import pymysql
@@ -15,6 +16,7 @@ class MysqlBackend(AbstractBackend):
         '''
 
         env = {'MYSQL_PWD': self._password}
+        env.update(os.environ)
 
         command = [
             'mysqldump',
@@ -79,6 +81,7 @@ class MysqlBackend(AbstractBackend):
         '''
 
         env = {'MYSQL_PWD': self._password}
+        env.update(os.environ)
 
         command = [
             'mysql',
@@ -108,6 +111,7 @@ class MysqlBackend(AbstractBackend):
         '''
 
         env = {'MYSQL_PWD': self._password}
+        env.update(os.environ)
 
         command = [
             'mysqldump',
