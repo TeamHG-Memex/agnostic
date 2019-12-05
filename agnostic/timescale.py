@@ -53,17 +53,6 @@ class TimescaleBackend(AbstractBackend):
 
         # Drop tables.
 
-        # First hypertables
-        cursor.execute('''
-            SELECT schema_name, table_name FROM _timescaledb_catalog.hypertable
-        ''')
-
-        tables = ['"{}"."{}"'.format(r[0], r[1]) for r in cursor.fetchall()]
-
-        if len(tables) > 0:
-            sql = 'DROP TABLE {} CASCADE'.format(', '.join(tables))
-            cursor.execute(sql)
-
         cursor.execute('''
             SELECT schemaname, tablename FROM pg_tables
              WHERE tableowner = %s
