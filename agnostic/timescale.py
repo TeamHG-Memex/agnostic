@@ -46,6 +46,11 @@ class TimescaleBackend(AbstractBackend):
     def clear_db(self, cursor):
         ''' Remove all objects from the database. '''
 
+        # Drop extension
+        cursor.execute('''
+            DROP EXTENSION timescaledb CASCADE;
+        ''')
+
         # Drop tables.
 
         # First hypertables
