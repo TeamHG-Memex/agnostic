@@ -48,7 +48,7 @@ class TimescaleBackend(AbstractBackend):
 
         # Drop extension
         cursor.execute('''
-            DROP EXTENSION timescaledb CASCADE;
+            DROP EXTENSION IF EXISTS timescaledb CASCADE;
         ''')
 
         # Drop tables.
