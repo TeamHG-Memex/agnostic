@@ -47,15 +47,24 @@ class TimescaleBackend(AbstractBackend):
         ''' Remove all objects from the database. '''
 
         # Drop tables.
+
+        # First hypertables
+        cursor.execute('''
+            SELECT schemaname, tablename FROM _timescaledb_catalog.hypertable
+             WHERE tableowner = %s
+        ''', (self._user,))
+
+        tables = ['"{}"."{}"'.format(r[0], r[1]) for r in cursor.fetchall()]
+
+        if len(tables) > 0:
+            sql = 'DROP TABLE {} CASCADE'.format(', '.join(tables))
+            cursor.execute(sql)
+
         cursor.execute('''
             SELECT schemaname, tablename FROM pg_tables
              WHERE tableowner = %s
                AND schemaname != 'pg_catalog'
                AND schemaname != 'information_schema'
-               AND schemaname != '_timescaledb_catalog'
-               AND schemaname != '_timescaledb_config'
-               AND schemaname != '_timescaledb_internal'
-               AND schemaname != '_timescaledb_cache'
         ''', (self._user,))
 
         tables = ['"{}"."{}"'.format(r[0], r[1]) for r in cursor.fetchall()]
