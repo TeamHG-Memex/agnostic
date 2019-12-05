@@ -50,7 +50,7 @@ class TimescaleBackend(AbstractBackend):
 
         # First hypertables
         cursor.execute('''
-            SELECT schemaname, tablename FROM _timescaledb_catalog.hypertable
+            SELECT schema_name, table_name FROM _timescaledb_catalog.hypertable
              WHERE tableowner = %s
         ''', (self._user,))
 
