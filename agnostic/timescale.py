@@ -51,8 +51,7 @@ class TimescaleBackend(AbstractBackend):
         # First hypertables
         cursor.execute('''
             SELECT schema_name, table_name FROM _timescaledb_catalog.hypertable
-             WHERE tableowner = %s
-        ''', (self._user,))
+        ''')
 
         tables = ['"{}"."{}"'.format(r[0], r[1]) for r in cursor.fetchall()]
 
