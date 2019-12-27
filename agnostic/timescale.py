@@ -3,7 +3,7 @@ import subprocess
 
 import pg8000
 
-from agnostic import PostgresBackend
+from agnostic.postgres import PostgresBackend
 
 
 class TimescaleBackend(PostgresBackend):
