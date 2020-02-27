@@ -49,7 +49,7 @@ Here is an absurdly brief introduction to Agnostic:
     Removing backup "/tmp/tmpm8glpgaa".
 
 For a not-quite-as-quick-but-still-pretty-quick start, please refer to the
-`full documentation <https://agnostic.readthedocs.io//>`_.
+`full documentation <https://agnostic.readthedocs.io/>`_.
 
 ----
 
