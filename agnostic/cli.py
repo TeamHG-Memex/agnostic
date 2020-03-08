@@ -28,7 +28,7 @@ pass_config = click.make_pass_decorator(Config, ensure=True)
     envvar='AGNOSTIC_TYPE',
     metavar='<type>',
     required=True,
-    type=click.Choice(['mysql', 'postgres', 'sqlite']),
+    type=click.Choice(['mysql', 'postgres', 'sqlite', 'timescale']),
     help='Type of database.'
 )
 @click.option(

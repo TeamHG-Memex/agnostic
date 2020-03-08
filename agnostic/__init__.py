@@ -117,6 +117,22 @@ def create_backend(db_type, host, port, user, password, database, schema):
                 raise
         return PostgresBackend(host, port, user, password, database, schema)
 
+    elif db_type == 'timescale':
+        if user is None or database is None:
+            raise RuntimeError('TimescaleDB requires user and database '
+                'arguments.')
+        host = host or 'localhost'
+        password = password or askpass(user, database)
+        try:
+            from agnostic.timescale import TimescaleBackend
+        except ImportError as ie: # pragma: no cover
+            if ie.name == 'pg8000':
+                raise RuntimeError('The `pg8000` module is required for '
+                    ' TimescaleDB.')
+            else:
+                raise
+        return TimescaleBackend(host, port, user, password, database, schema)
+
     elif db_type == 'sqlite':
         if (host is not None or port is not None or user is not None or
             password is not None or schema is not None):
