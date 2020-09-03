@@ -387,7 +387,7 @@ def restore(config, schemafile):
     click.echo('Restoring {} from snapshot…'.format(config.backend.location))
 
     try:
-        _wait_for(config.backend.restore_db(schemafile, False))
+        _wait_for(config.backend.restore_db(schemafile))
     except Exception as e:
         raise click.ClickException('Not able to restore: {}'.format(e))
 
