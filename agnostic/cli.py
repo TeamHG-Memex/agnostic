@@ -634,8 +634,13 @@ def _run_sql(cursor, sql):
     '''
 
     for statement in sqlparse.parse(sql):
-        if statement.get_type() != 'UNKNOWN':
-            cursor.execute(str(statement))
+        statement_string = str(statement)
+        if statement.get_type() != 'UNKNOWN' or _is_dcl_statement(statement_string):
+            cursor.execute(statement_string)
+
+def _is_dcl_statement(sql):
+    clean_sql = sql.lower_case().lstrip()
+    return clean_sql.startswith('grant ') or clean_sql.startswith('revoke ')
 
 
 def _wait_for(process):
