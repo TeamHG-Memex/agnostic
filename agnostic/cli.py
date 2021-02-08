@@ -639,7 +639,7 @@ def _run_sql(cursor, sql):
             cursor.execute(statement_string)
 
 def _is_dcl_statement(sql):
-    clean_sql = sql.lower_case().lstrip()
+    clean_sql = sql.lower().lstrip()
     return clean_sql.startswith('grant ') or clean_sql.startswith('revoke ')
 
 
