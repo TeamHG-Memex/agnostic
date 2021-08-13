@@ -90,6 +90,14 @@ pass_config = click.make_pass_decorator(Config, ensure=True)
     help='Path to migrations directory. (default: ./migrations)'
 )
 @click.option(
+    '-k', '--private-key',
+    envvar='SNOWFLAKE_PRIVATE_KEY',
+    metavar='<private_key>',
+    required=False,
+    hide_input=True,
+    help='Snowflake private_key, as an alternative way of authentication. Either password or this key must be provided'
+)
+@click.option(
     '-D', '--debug',
     is_flag=True,
     help='Display stack traces when exceptions occur.'
@@ -97,7 +105,7 @@ pass_config = click.make_pass_decorator(Config, ensure=True)
 @click.version_option()
 @pass_config
 def main(config, db_type, host, port, user, password, database, schema,
-         migrations_dir, debug):
+         migrations_dir, private_key, debug):
     ''' Agnostic database migrations: upgrade schemas, save your sanity. '''
 
     config.debug = debug
@@ -105,7 +113,7 @@ def main(config, db_type, host, port, user, password, database, schema,
 
     try:
         config.backend = create_backend(db_type, host, port, user, password,
-                                        database, schema)
+                                        database, schema, private_key)
     except RuntimeError as re:
         raise click.ClickException(str(re))
 

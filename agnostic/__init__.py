@@ -72,7 +72,7 @@ class Migration():
         )
 
 
-def create_backend(db_type, host, port, user, password, database, schema):
+def create_backend(db_type, host, port, user, password, database, schema, private_key=None):
     '''
     Return a new backend instance.
     '''
@@ -80,6 +80,9 @@ def create_backend(db_type, host, port, user, password, database, schema):
     if db_type == 'mysql':
         if schema is not None:
             raise RuntimeError('MySQL does not support schemas.')
+        if private_key is not None:
+            raise RuntimeError('MySQL does not support private keys.')
+
 
         try:
             from agnostic.mysql import MysqlBackend
@@ -92,6 +95,9 @@ def create_backend(db_type, host, port, user, password, database, schema):
         return MysqlBackend(host, port, user, password, database, schema)
 
     elif db_type == 'postgres':
+        if private_key is not None:
+            raise RuntimeError('Postgres does not support private keys.')
+
         try:
             from agnostic.postgres import PostgresBackend
         except ImportError as ie:
@@ -111,7 +117,7 @@ def create_backend(db_type, host, port, user, password, database, schema):
                 raise RuntimeError(msg)
             else:
                 raise
-        return SnowflakeBackend(host, port, user, password, database, schema)
+        return SnowflakeBackend(host, port, user, password, database, schema, private_key)
 
     else:
         raise ValueError('Invalid database type: "{}"'.format(db_type))
@@ -131,7 +137,7 @@ class AbstractBackend(metaclass=ABCMeta):
 
         return location
 
-    def __init__(self, host, port, user, password, database, schema):
+    def __init__(self, host, port, user, password, database, schema, private_key=None):
         ''' Constructor. '''
 
         self._host = host
@@ -140,6 +146,7 @@ class AbstractBackend(metaclass=ABCMeta):
         self._password = password
         self._database = database
         self._schema = schema
+        self._private_key = private_key
 
     @abstractmethod
     def backup_db(self, backup_file):
