@@ -1,3 +1,4 @@
+import base64
 import subprocess
 
 import snowflake.connector
@@ -15,13 +16,17 @@ class SnowflakeBackend(AbstractBackend):
 
         connect_args = {
             'user': self._user,
-            'password': self._password,
             'account': self._host,
             'database': self._database,
             'autocommit': True,
             'schema': self._schema
         }
 
+        if self._private_key is not None:
+            connect_args['private_key'] = base64.b64decode(self._private_key)
+            print('Snowflake private key found, using it for authentication.')
+        else:
+            connect_args['password'] = self._password
         if self._port is not None:
             connect_args['port'] = self._port
 
