@@ -167,6 +167,7 @@ class PostgresBackend(AbstractBackend):
             '-O', # don't dump ownership commands
             '--clean',
             '--no-tablespaces',
+            '--if-exists',
         ]
 
         if self._port is not None:
