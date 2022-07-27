@@ -8,6 +8,7 @@ import click
 import sqlparse
 
 from agnostic import create_backend, Migration, MigrationStatus
+from natsort import natsorted
 
 
 class Config(object):
@@ -544,7 +545,7 @@ def _list_migration_files(migrations_dir):
         migration_prefix_len = len(migrations_dir) + 1
         current_dir = os.path.join(migrations_dir, sub_path)
 
-        for dir_entry in sorted(os.listdir(current_dir), key=str.upper):
+        for dir_entry in natsorted(os.listdir(current_dir)):
             dir_entry_path = os.path.join(current_dir, dir_entry)
 
             if os.path.isfile(dir_entry_path) and dir_entry.endswith('.sql'):
