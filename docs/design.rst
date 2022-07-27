@@ -159,38 +159,12 @@ cognitive load for developers who want migrations that "just work".
 **Agnostic's simple and open-ended approach allows you to manage dependencies
 however you like, but without introducing a lot of extra work.**
 
-Here is an example file layout for migrations that minimizes dependency
-management without adding significant cognitive load. This is just an example,
-of course! You may find other systems that work even better for you own team,
-and Agnostic is cool with that.
-
-Let's assume that you use `semantic versioning <http://semver.org/>`_ or
-something like it. We will group all migrations into subdirectories, where each
-subdirectory has a 6 digit name that corresponds to a semantic version number.
-For example, version 1.2.3 would be named ``010203`` and version 12.34.56 would
-be named ``123456``.
-
-This convention gives us a migrations directory layout like this:
-
-.. code::
-
-    migrations/
-        010000/
-            add_address_line_2.sql
-            add_home_phone.sql
-        010001/
-            add_cell_phone.sql
-        010200/
-            normalize_phones.sql
-        020000/
-            add_user_join_table.sql
-
 .. note::
 
     You can nest directories as deeply as you want, in case you want more
     fine-grained subgroups.
 
-The beauty of this simple arrangement is that Agnostic will automatically sort
+The beauty of part of Agnostic is that it will automatically sort all the
 migrations into the correct order: scripts for version 1.0.1 run before scripts
 for version 1.2.0, which in turn run before scripts for version 2.0.0. Any
 dependency conflicts between versions are automatically handled for us, with
