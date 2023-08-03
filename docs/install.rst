@@ -44,7 +44,7 @@ Install From Source
 
 Agnostic is also easy to install from source, in case you want to install a pre-
 release version. You can clone the repo or download a Zip file from `the
-project's repository <https://github.com/TeamHG- Memex/agnostic>`_. Once you
+project's repository <https://github.com/mehaase/agnostic>`_. Once you
 have it cloned or unzipped, run the ``setup.py`` script.
 
 .. note::

@@ -2,7 +2,7 @@ import pathlib
 from setuptools import setup
 
 
-readme = pathlib.Path(__file__).parent / 'README.rst'
+readme = pathlib.Path(__file__).parent / 'README.md'
 with readme.open() as readme_data:
     long_description = readme_data.read()
 
@@ -16,7 +16,7 @@ setup(
     long_description=long_description,
     license='MIT',
     keywords='database migrations',
-    url='https://github.com/TeamHG-Memex/agnostic',
+    url='https://github.com/mehaase/agnostic',
     packages=['agnostic'],
     classifiers=[
         'Development Status :: 3 - Alpha',
@@ -29,7 +29,7 @@ setup(
     ],
     # Keep the dependencies in sync with tests/docker/Dockerfile dependencies:
     install_requires=[
-        'Click>=7.0,<8.0',
+        'Click>=7.0',
         'sqlparse>=0.2.4,<0.3.0',
     ],
     extras_require = {

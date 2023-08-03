@@ -233,5 +233,4 @@ Agnostic is a migrations system you can use on all of your projects.
 License
 -------
 
-Agnostic is released under an `MIT license <https://github.com/TeamHG-
-Memex/agnostic/blob/master/LICENSE>`_.
+Agnostic is released under an `MIT license <https://github.com/mehaase/agnostic/blob/master/LICENSE>`_.

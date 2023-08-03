@@ -1,0 +1,26 @@
+name: Integration Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  integration_test:
+    runs-on: ubuntu-latest
+
+    container:
+      image: mehaase/agnostic-tests:latest
+      volumes:
+        -
+    steps:
+    - uses: actions/checkout@v3
+    - uses: actions/setup-python@v4
+      with:
+        python-version: '3.8'
+    - name: Pause 10 seconds for DB startup
+      run: sleep 10
+    - name: Run tests
+      run: python3 -m tests --with-coverage --cover-package agnostic --with-reportclassname -v
+    - name: Upload coverage
+      uses: coverallsapp/github-action@v2
