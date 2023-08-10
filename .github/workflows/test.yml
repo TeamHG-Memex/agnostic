@@ -12,7 +12,7 @@ jobs:
     container:
       image: mehaase/agnostic-tests:latest
       volumes:
-        -
+        - :/opt/agnostic
     steps:
     - uses: actions/checkout@v3
     - uses: actions/setup-python@v4
@@ -21,6 +21,6 @@ jobs:
     - name: Pause 10 seconds for DB startup
       run: sleep 10
     - name: Run tests
-      run: python3 -m tests --with-coverage --cover-package agnostic --with-reportclassname -v
+      run: pytest --cov=agnostic tests/
     - name: Upload coverage
       uses: coverallsapp/github-action@v2

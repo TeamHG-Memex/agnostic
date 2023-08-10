@@ -5,16 +5,25 @@ RUN apt-get update && \
         postgresql sqlite3 supervisor && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 RUN curl  https://bootstrap.pypa.io/get-pip.py | python3
-RUN pip3 install 'Click>=7.0' 'sqlparse>=0.2.4,<0.3.0' 'nose>=1.3.7,<1.4.0' \
-    'PyMySQL>=0.9.2,<0.10.0' 'pg8000>=1.12.3,<1.13.0'
+RUN pip3 install 'Click>=7.0' 'sqlparse>=0.2.4,<0.3.0' 'pytest' 'pytest-cov' \
+    'PyMySQL' 'pg8000'
 RUN pip3 install coveralls sphinx sphinx_rtd_theme
 COPY supervisor.conf /etc/supervisor/conf.d/agnostic-tests.conf
 RUN mkdir -p /var/log/supervisor
 
-RUN usermod -d /var/lib/mysql/ mysql
-RUN /etc/init.d/mysql start && mysqladmin -u root password root
+# Provide default credentials for integration tests.
+ENV MYSQL_USER=root
+ENV MYSQL_PASSWORD=root
+ENV POSTGRES_USER=root
+ENV POSTGRES_PASSWORD=root
 
-# "CREATE DATABASE" is much faster with fsync disabled:
+# Set up MySQL
+RUN usermod -d /var/lib/mysql/ mysql
+RUN /etc/init.d/mysql start && \
+    mysql -e "ALTER USER '$MYSQL_USER'@'localhost' IDENTIFIED WITH mysql_native_password BY '$MYSQL_PASSWORD';"
+
+# Set up Postgres
+# ("CREATE DATABASE" is much faster with fsync disabled:)
 RUN sed --in-place 's:#fsync = on:fsync = off:' \
        /etc/postgresql/14/main/postgresql.conf
 
@@ -23,12 +32,6 @@ RUN /etc/init.d/postgresql start && \
 
 # This environment variable allows Click to print to stdout:
 ENV LANG=C.UTF-8
-
-# Provide default credentials for integration tests.
-ENV MYSQL_USER=root
-ENV MYSQL_PASSWORD=root
-ENV POSTGRES_USER=root
-ENV POSTGRES_PASSWORD=root
 
 # Work around weird MySQL-in-Docker error: https://serverfault.com/questions/870568/fatal-error-cant-open-and-lock-privilege-tables-table-storage-engine-for-use
 VOLUME /var/lib/mysql
